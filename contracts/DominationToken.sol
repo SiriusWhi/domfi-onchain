@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: UNLICENSED
+// TODO: Ribbon snippets are gplv3 and currently dominate. is it OK to license this gplv3?
 pragma solidity ^0.8.0;
 
 import "@openzeppelin/contracts/token/ERC777/ERC777.sol";
-import "@openzeppelin/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts/access/AccessControl.sol";
 
-contract DominationToken is ERC777, Ownable
+contract DominationToken is ERC777, AccessControl
 {
-    uint256 constant maxSupply = 15e24;
     /**
     15 million tokens (to match initial valuation for convenience):
         40% (6m)   to team & investors; 1 token per $ invested
@@ -14,10 +14,16 @@ contract DominationToken is ERC777, Ownable
 
     all above numbers * 1e18 in internal representation
      */
+     uint256 constant maxSupply = 15e24;
+
+    bytes32 public constant TRANSFER_ROLE = keccak256("TRANSFER");
+    bool public transfersAllowed = false; // flag: can people without the role transfer?
 
     constructor(address[] memory defaultOperators) // include DAO address in params
         ERC777("Domination Finance Token", "DOM", defaultOperators)
     {
+        _setupRole(TRANSFER_ROLE, msg.sender);
+
         _mint(0x0000000000000000000000000000000000000001, 700000e18, "", ""); // todo: TokenTimelock or similar
         _mint(0x0000000000000000000000000000000000000001, 500000e18, "", ""); // no voting rights til vested
         _mint(0x0000000000000000000000000000000000000001, 500000e18, "", "");
@@ -42,5 +48,26 @@ contract DominationToken is ERC777, Ownable
         _mint(0x0000000000000000000000000000000000000001, 790000e18, "", "");
 
         _mint(0x0000000000000000000000000000000000000001, 9e24, "", ""); // todo: DAO address
+        
     }
+
+    modifier onlyTransferer(address from) {
+        require(
+            transfersAllowed ||
+                from == address(0) ||
+                hasRole(TRANSFER_ROLE, msg.sender),
+            "DOM token: no transfer privileges"
+        );
+        _;
+    }
+
+    function _beforeTokenTransfer(
+        address operator,
+        address from,
+        address to,
+        uint256 amount
+    ) internal virtual override onlyTransferer(from) {}
+
+    // Emitted when transfer flag is toggled
+    event TransfersAllowed(bool transfersAllowed);
 }
