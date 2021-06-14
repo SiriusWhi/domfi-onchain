@@ -1,5 +1,4 @@
-// SPDX-License-Identifier: UNLICENSED
-// TODO: Ribbon snippets are gplv3 and currently dominate. is it OK to license this gplv3?
+// SPDX-License-Identifier: GPL-3.0
 pragma solidity ^0.8.0;
 
 import "@openzeppelin/contracts/token/ERC777/ERC777.sol";
