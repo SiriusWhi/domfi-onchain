@@ -16,7 +16,7 @@ contract DominationToken is ERC777, AccessControl
      uint256 constant maxSupply = 15e24;
 
     bytes32 public constant TRANSFER_ROLE = keccak256("TRANSFER");
-    bool public transfersAllowed = false; // flag: can people without the role transfer?
+    bool public transfersAllowed = false; // flag: can people transfer without the role?
 
     constructor(address[] memory defaultOperators) // include DAO address in params
         ERC777("Domination Finance Token", "DOM", defaultOperators)
