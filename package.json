@@ -11,5 +11,8 @@
   "dependencies": {
     "@openzeppelin/contracts": "^4.1.0",
     "truffle": "^5.3.8"
+  },
+  "devDependencies": {
+    "@openzeppelin/test-helpers": "^0.5.11"
   }
 }
