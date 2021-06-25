@@ -33,7 +33,8 @@ module.exports = function (deployer) {
             allocation.amount,
             1626307200, // vestingBegin, 2021-07-15
             1642204800, // vestingCliff, 2022-01-15. 6 months
-            1721001600 // vestingEnd, 2024-07-15. 3 years
+            1721001600, // vestingEnd, 2024-07-15. 3 years
+            2592000     // timeout, 1 month
             );
     })
 };

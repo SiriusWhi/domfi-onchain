@@ -11,6 +11,7 @@ contract Vester {
     uint public vestingBegin;
     uint public vestingCliff;
     uint public vestingEnd;
+    uint public timeout;
 
     uint public lastUpdate;
 
@@ -20,7 +21,8 @@ contract Vester {
         uint vestingAmount_,
         uint vestingBegin_,
         uint vestingCliff_,
-        uint vestingEnd_
+        uint vestingEnd_,
+        uint timeout_
     ) {
         require(vestingBegin_ >= block.timestamp, 'Vester::constructor: vesting begin too early');
         require(vestingCliff_ >= vestingBegin_, 'Vester::constructor: cliff is too early');
@@ -33,6 +35,7 @@ contract Vester {
         vestingBegin = vestingBegin_;
         vestingCliff = vestingCliff_;
         vestingEnd = vestingEnd_;
+        timeout = timeout_;
 
         lastUpdate = vestingBegin;
     }
@@ -44,6 +47,7 @@ contract Vester {
 
     function claim() public {
         require(block.timestamp >= vestingCliff, 'Vester::claim: not time yet');
+        require(block.timestamp >= lastUpdate + timeout || lastUpdate == vestingBegin, 'Vester::claim: cooldown');
         uint amount;
         if (block.timestamp >= vestingEnd) {
             amount = dom.balanceOf(address(this));
