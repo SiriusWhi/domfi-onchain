@@ -28,8 +28,7 @@ const allocations = [
 module.exports = function (deployer) {
     allocations.forEach(allocation => {
         deployer.deploy(Vester,
-            '0x4ed5fA3814942ae56C181c98F84C8cbfCc29F1ec', // dom address goes here
-            // DomToken.deployed().address ?
+            DomToken.address,
             allocation.address,
             allocation.amount,
             1626307200, // vestingBegin, 2021-07-15

@@ -13,7 +13,7 @@ contract DominationToken is ERC777, AccessControl
 
     all above numbers * 1e18 in internal representation
      */
-     uint256 constant maxSupply = 15e24;
+    uint256 constant maxSupply = 15e24;
 
     bytes32 public constant TRANSFER_ROLE = keccak256("TRANSFER");
     bool public transfersAllowed = false; // flag: can people transfer without the role?
@@ -22,30 +22,11 @@ contract DominationToken is ERC777, AccessControl
         ERC777("Domination Finance Token", "DOM", defaultOperators)
     {
         _setupRole(TRANSFER_ROLE, msg.sender);
+        _setupRole(DEFAULT_ADMIN_ROLE, msg.sender); // ability to manage roles
 
-        _mint(0x0000000000000000000000000000000000000001, 700000e18, "", ""); // todo: TokenTimelock or similar
-        _mint(0x0000000000000000000000000000000000000001, 500000e18, "", ""); // no voting rights til vested
-        _mint(0x0000000000000000000000000000000000000001, 500000e18, "", "");
-        _mint(0x0000000000000000000000000000000000000001, 300000e18, "", "");
-        _mint(0x0000000000000000000000000000000000000001, 200000e18, "", "");
-        _mint(0x0000000000000000000000000000000000000001, 150000e18, "", "");
-        _mint(0x0000000000000000000000000000000000000001, 150000e18, "", "");
-        _mint(0x0000000000000000000000000000000000000001,  75000e18, "", "");
-        _mint(0x0000000000000000000000000000000000000001,  60000e18, "", "");
-        _mint(0x0000000000000000000000000000000000000001,  50000e18, "", "");
-        _mint(0x0000000000000000000000000000000000000001,  50000e18, "", "");
-        _mint(0x0000000000000000000000000000000000000001,  25000e18, "", "");
-        _mint(0x0000000000000000000000000000000000000001,  20000e18, "", "");
-        _mint(0x0000000000000000000000000000000000000001,  20000e18, "", "");
-        _mint(0x0000000000000000000000000000000000000001,  20000e18, "", "");
-        _mint(0x0000000000000000000000000000000000000001,  10000e18, "", "");
-        _mint(0x0000000000000000000000000000000000000001,  10000e18, "", "");
-
-        _mint(0x0000000000000000000000000000000000000001, 790000e18, "", ""); // 5.2666..% per founder to get us to 6m total minted
-        _mint(0x0000000000000000000000000000000000000001, 790000e18, "", ""); // placeholder addresses
-        _mint(0x0000000000000000000000000000000000000001, 790000e18, "", ""); // TODO: real numbers
-        _mint(0x0000000000000000000000000000000000000001, 790000e18, "", "");
-
+        // TODO: give transferable rights to all the contracts
+        
+        _mint(0x0000000000000000000000000000000000000001, 6e14, "", "");
         _mint(0x0000000000000000000000000000000000000001, 9e24, "", ""); // todo: DAO address
         
     }
