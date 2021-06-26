@@ -34,9 +34,9 @@ contract VesterFactory{
             vestingCliff,
             vestingEnd,
             timeout);
-        
+
         emit VesterCreated(address(vester));
-        
+
         AccessControl(DomToken).grantRole(TRANSFER_ROLE, address(vester));
 
         return address(vester);
@@ -58,6 +58,8 @@ contract Vester is IERC777Recipient{
     uint public timeout;
 
     uint public lastUpdate;
+
+    bool funded = false;
 
     constructor(
         address dom_,
@@ -94,7 +96,10 @@ contract Vester is IERC777Recipient{
         bytes calldata userData,
         bytes calldata operatorData
     ) external override {
-        require(msg.sender == address(dom), "Vester:: tokensReceived: invalid token");
+        require(msg.sender == address(dom), "Vester:: tokensReceived: not DOM token");
+        require(amount == vestingAmount, "Vester:: tokensReceived: incorrect amount");
+        require(funded == false, "Vester:: tokensReceived: already funded");
+        funded = true;
     }
 
     function setRecipient(address recipient_) public {
