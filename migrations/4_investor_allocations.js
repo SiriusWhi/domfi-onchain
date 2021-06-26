@@ -1,5 +1,5 @@
 const DomToken = artifacts.require("DominationToken");
-const Vester = artifacts.require("Vester");
+const VesterFactory = artifacts.require("VesterFactory");
 
 const allocations = [
     { address: '0x0000000000000000000000000000000000000001', amount: web3.utils.toBN("700000e18") },
@@ -25,9 +25,14 @@ const allocations = [
     { address: '0x0000000000000000000000000000000000000001', amount: web3.utils.toBN("790000e18") },
 ]
 
-module.exports = function (deployer) {
-    allocations.forEach(allocation => {
-        deployer.deploy(Vester,
+module.exports = async function (deployer, network, accounts) {
+    dom = await DomToken.deployed();
+    vFactory = await VesterFactory.deployed();
+
+    for (const allocation of allocations) {
+        // vFactory.VesterCreated().on('data', event => console.log(event));
+
+        result = await vFactory.createVester(
             DomToken.address,
             allocation.address,
             allocation.amount,
@@ -35,6 +40,10 @@ module.exports = function (deployer) {
             1642204800, // vestingCliff, 2022-01-15. 6 months
             1721001600, // vestingEnd, 2024-07-15. 3 years
             2592000     // timeout, 1 month
-            );
-    })
+        );
+        const vester = result.logs[0].args[0]; // hack, should wait for an event to be emitted
+
+        // fund the contract
+        await dom.operatorSend(accounts[0], vester, allocation.amount, 0, 0);
+    }
 };

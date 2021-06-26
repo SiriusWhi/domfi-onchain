@@ -16,6 +16,7 @@ contract DominationToken is ERC777, AccessControl
     uint256 constant maxSupply = 15e24;
 
     bytes32 public constant TRANSFER_ROLE = keccak256("TRANSFER");
+    bytes32 public constant TRANSFER_TOGGLER = keccak256("TRANSFER_TOGGLER");
     bool public transfersAllowed = false; // flag: can people transfer without the role?
 
     constructor(address[] memory defaultOperators) // include DAO address in params
@@ -23,12 +24,16 @@ contract DominationToken is ERC777, AccessControl
     {
         _setupRole(TRANSFER_ROLE, msg.sender);
         _setupRole(DEFAULT_ADMIN_ROLE, msg.sender); // ability to manage roles
+        
+        _mint(msg.sender, 6e14, "", "");
+        _mint(msg.sender, 9e24, "", "");
+        
+    }
 
-        // TODO: give transferable rights to all the contracts
-        
-        _mint(0x0000000000000000000000000000000000000001, 6e14, "", "");
-        _mint(0x0000000000000000000000000000000000000001, 9e24, "", ""); // todo: DAO address
-        
+    function setTransfersAllowed(bool _transfersAllowed) external {
+        require(hasRole(TRANSFER_TOGGLER, msg.sender), "DOM token: no toggle privileges");
+        transfersAllowed = _transfersAllowed;
+        emit TransfersAllowed(transfersAllowed);
     }
 
     modifier onlyTransferer(address from) {
