@@ -44,6 +44,6 @@ module.exports = async function (deployer, network, accounts) {
         const vester = result.logs[0].args[0]; // hack, should wait for an event to be emitted
 
         // fund the contract
-        await dom.operatorSend(accounts[0], vester, allocation.amount, 0, 0);
+        await dom.send(vester, allocation.amount, 0);
     }
 };
