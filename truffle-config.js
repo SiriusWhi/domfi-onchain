@@ -47,5 +47,11 @@ module.exports = {
 
   db: {
     enabled: false
+  },
+  plugins: [
+    'truffle-plugin-verify'
+  ],
+  api_keys: {
+    etherscan: 'VT7NVG1ZVMIRNKFTZ4DZUQK2U49Q9C1UU3'
   }
 };
