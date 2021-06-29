@@ -1,7 +1,5 @@
 const HDWalletProvider = require('@truffle/hdwallet-provider');
-// put this in .env later. enjoy the 1 kovan eth, github scrapers of the future
-const privateKey = "b977de940c5a8fae4d9f02fee5218c4631ad0e24c6157532a878ee00e7e417c7";
-const endpointUrl = "https://kovan.infura.io/v3/365ee8c2753844baad6c57d797c22d4f";
+require('dotenv').config();
 
 module.exports = {
 
@@ -14,10 +12,8 @@ module.exports = {
     kovan: {
       provider: function() {
         return new HDWalletProvider(
-          //private keys array
-          [privateKey],
-          //url to ethereum node
-          endpointUrl
+          [process.env.KOVAN_PRIVATE_KEY],
+          process.env.KOVAN_INFURA_ENDPOINT
         )
       },
       gas: 5000000,
@@ -52,6 +48,6 @@ module.exports = {
     'truffle-plugin-verify'
   ],
   api_keys: {
-    etherscan: 'VT7NVG1ZVMIRNKFTZ4DZUQK2U49Q9C1UU3'
+    etherscan: process.env.ETHERSCAN_API_KEY
   }
 };
