@@ -7,26 +7,27 @@ import "@openzeppelin/contracts/access/AccessControl.sol";
 contract DominationToken is ERC777, AccessControl
 {
     /**
-    15 million tokens (to match initial valuation for convenience):
-        40% (6m)   to team & investors; 1 token per $ invested
-        60% (9m)   to DAO
+    1.5 billion tokens (to match initial valuation for convenience):
+        40% (600m)   to team & investors; 1 token per $ invested
+        60% (900m)   to DAO
 
     all above numbers * 1e18 in internal representation
      */
-    uint256 constant maxSupply = 15e24;
+    uint256 constant maxSupply = 15e26;
 
     bytes32 public constant TRANSFER_ROLE = keccak256("TRANSFER");
     bytes32 public constant TRANSFER_TOGGLER = keccak256("TRANSFER_TOGGLER");
     bool public transfersAllowed = false; // flag: can people transfer without the role?
 
-    constructor(address[] memory defaultOperators) // include DAO address in params
+    constructor(address[] memory defaultOperators)
         ERC777("Domination Finance Token", "DOM", defaultOperators)
     {
+         // TODO include DAO address in params, grant this stuff there instead
         _setupRole(TRANSFER_ROLE, msg.sender);
         _setupRole(DEFAULT_ADMIN_ROLE, msg.sender); // ability to manage roles
         
-        _mint(msg.sender, 6e14, "", "");
-        _mint(msg.sender, 9e24, "", "");
+        _mint(msg.sender, 6e26, "", "");
+        _mint(msg.sender, 9e26, "", "");
         
     }
 
