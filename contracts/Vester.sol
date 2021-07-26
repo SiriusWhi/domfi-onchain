@@ -10,7 +10,7 @@ contract VesterFactory{
     bytes32 public constant TRANSFER_ROLE = keccak256("TRANSFER");
     address DomToken;
 
-    constructor(address DomToken_) public {
+    constructor(address DomToken_) {
         DomToken = DomToken_;
     }
 
@@ -89,12 +89,12 @@ contract Vester is IERC777Recipient{
     }
 
     function tokensReceived(
-        address operator,
-        address from,
-        address to,
+        address /* operator */,
+        address /* from */,
+        address /* to */,
         uint256 amount,
-        bytes calldata userData,
-        bytes calldata operatorData
+        bytes calldata /* userData */,
+        bytes calldata /* operatorData */
     ) external override {
         require(msg.sender == address(dom), "Vester:: tokensReceived: not DOM token");
         require(amount == vestingAmount, "Vester:: tokensReceived: incorrect amount");
