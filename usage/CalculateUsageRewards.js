@@ -25,54 +25,59 @@ node CalculateUsageRewards.js \
 --tokenName "BTCDOM" \
 --week 1 \
 --network kovan_mnemonic \
---longAddress "0x6df2b61fa0a8bfb1369c79dd3d062db4392bf07e" \
---shortAddress "0x2ee3938931ea6668e53ace0e246d3aef02f2534a" \
---poolAddress "0xb7a3b8808516d6de3226dc283af3455d7b3919e4" \
+--longAddress "0x458b7adf6c8bde12e6034c3d49e99f29830b96a3" \
+--longPoolAddress "0x075b7f2a77e84b43913c56f4699845ddc178c2fc" \
+--shortAddress "0xb5ef720bffb08a0604c176bfc819595c03643b76" \
+--shortPoolAddress "0xb5a6fab86f536bc6918fdb3c414b7576dc0ccc98" \
 --stakingAddress "0x406afd87605f1bee4224d5f748b08d91b4dc806d"
 */
 
-// Set the archival node using: export CUSTOM_NODE_URL=<your node here>
 const cliProgress = require("cli-progress");
 require("dotenv").config();
 const Promise = require("bluebird");
 const fetch = require("node-fetch");
 const fs = require("fs");
 const path = require("path");
-const { getAbi } = require("@uma/core");
-const { getWeb3 } = require("@uma/common");
-const web3 = getWeb3();
 
-const { toWei, toBN, fromWei } = web3.utils;
+unV2ABI = require('@uniswap/v2-core/build/IUniswapV2ERC20.json')
+const { ethers } = require("ethers");
+toBN = ethers.BigNumber.from
+toWei = ethers.utils.parseEther
+fromWei = ethers.utils.formatEther
 
-// abi = ({})
-// abi.ERC20 = [
-//   "event Approval(address indexed owner, address indexed spender, uint value)",
-//   "event Transfer(address indexed from, address indexed to, uint value)",
-//   "function name() external view returns (string memory)",
-//   "function symbol() external view returns (string memory)",
-//   "function decimals() external view returns (uint8)",
-//   "function totalSupply() external view returns (uint)",
-//   "function balanceOf(address owner) external view returns (uint)",
-//   "function allowance(address owner, address spender) external view returns (uint)",
-//   "function approve(address spender, uint value) external returns (bool)",
-//   "function transfer(address to, uint value) external returns (bool)",
-//   "function transferFrom(address from, address to, uint value) external returns (bool)",
-// ];
+network = 'kovan'
+
+provider = new ethers.providers.AlchemyProvider(network, process.env.ALCHEMY_API_KEY)
+
+abi = ({})
+abi.ERC20 = [
+  "event Approval(address indexed owner, address indexed spender, uint value)",
+  "event Transfer(address indexed from, address indexed to, uint value)",
+  "function name() external view returns (string memory)",
+  "function symbol() external view returns (string memory)",
+  "function decimals() external view returns (uint8)",
+  "function totalSupply() external view returns (uint)",
+  "function balanceOf(address owner) external view returns (uint)",
+  "function allowance(address owner, address spender) external view returns (uint)",
+  "function approve(address spender, uint value) external returns (bool)",
+  "function transfer(address to, uint value) external returns (bool)",
+  "function transferFrom(address from, address to, uint value) external returns (bool)",
+];
+abi.UNIV2 = unV2ABI;
 
 const argv = require("minimist")(process.argv.slice(), {
-  string: ["poolAddress", "longAddress", "shortAddress", "stakingAddress", "tokenName"],
+  string: ["longAddress", "longPoolAddress", "shortAddress", "shortPoolAddress", "stakingAddress", "tokenName"],
   integer: ["fromBlock", "toBlock", "week", "domPerWeek", "blocksPerSnapshot"],
 });
-
-// provider = new ethers.providers.AlchemyProvider("kovan", process.env.ALCHEMY_API_KEY);
 
 async function calculateUniswapLPRewards(
   fromBlock,
   toBlock,
   tokenName,
-  poolAddress,
   longAddress,
+  longPoolAddress,
   shortAddress,
+  shortPoolAddress,
   stakingAddress,
   week,
   domPerWeek = 25000,
@@ -81,8 +86,11 @@ async function calculateUniswapLPRewards(
   // Create two moment objects from the input string. Convert to UTC time zone. As no time is provided in the input
   // will parse to 12:00am UTC.
   if (
-    !web3.utils.isAddress(poolAddress) ||
-    !web3.utils.isAddress(longAddress) ||
+    !ethers.utils.isAddress(longAddress) ||
+    !ethers.utils.isAddress(longPoolAddress) ||
+    !ethers.utils.isAddress(shortAddress) ||
+    !ethers.utils.isAddress(shortPoolAddress) ||
+    !ethers.utils.isAddress(stakingAddress) ||
     !fromBlock ||
     !toBlock ||
     !week ||
@@ -104,15 +112,15 @@ async function calculateUniswapLPRewards(
     `🔎 Capturing ${snapshotsToTake} snapshots and distributing ${fromWei(
       domPerSnapshot
     )} $DOM per snapshot.\n💸 Total $DOM to be distributed distributed: ${fromWei(
-      domPerSnapshot.muln(snapshotsToTake)
+      domPerSnapshot.mul(snapshotsToTake)
     )}`
   );
 
   // Initialize the contract we'll need for computation.
-  const uniswapPool = new web3.eth.Contract(getAbi("ERC20"), poolAddress);
-  // const longContract = new web3.eth.Contract(getAbi("LongShortPair"), longAddress);
-  const longToken = new web3.eth.Contract(getAbi("ERC20"), longAddress);
-  const shortToken = new web3.eth.Contract(getAbi("ERC20"), shortAddress);
+  const longToken = new ethers.Contract(longAddress, abi.ERC20, provider);
+  const longPool = new ethers.Contract(longPoolAddress, abi.UNIV2, provider);
+  const shortToken = new ethers.Contract(shortAddress, abi.ERC20, provider);
+  const shortPool = new ethers.Contract(shortPoolAddress, abi.UNIV2, provider);
   
   console.log("Finding long token holder info...");
   const longHolders = await findTokenHolders(longToken, toBlock);
@@ -123,13 +131,13 @@ async function calculateUniswapLPRewards(
   // console.log("shortHolders", shortHolders);
 
   console.log("Finding long token LP info...");
-  const longPoolInfo = await _fetchUniswapPoolInfo(poolAddress);
+  const longPoolInfo = await _fetchUniswapPoolInfo(longPoolAddress);
   // console.log("longPoolInfo", JSON.stringify(longPoolInfo));
   const longPoolHolders = longPoolInfo.flatMap((a) => a.user.id);
   // console.log("longPoolHolders", longPoolHolders);
 
   console.log("Finding short token LP info...");
-  const shortPoolInfo = await _fetchUniswapPoolInfo(poolAddress);
+  const shortPoolInfo = await _fetchUniswapPoolInfo(shortPoolAddress);
   // console.log("shortPoolInfo", JSON.stringify(shortPoolInfo));
   const shortPoolHolders = shortPoolInfo.flatMap((a) => a.user.id);
   // console.log("shortPoolHolders", shortPoolHolders);
@@ -138,7 +146,8 @@ async function calculateUniswapLPRewards(
   [longHolders, shortHolders, longPoolHolders, shortPoolHolders].flat().forEach(
     address => balances[address.toLowerCase()] = 0
   );
-  delete balances[poolAddress.toLowerCase()]; // these will be handled separately
+  delete balances[longPoolAddress.toLowerCase()]; // these will be handled separately
+  delete balances[shortPoolAddress.toLowerCase()];
   delete balances[stakingAddress.toLowerCase()];
 
   const shareHolders = Object.keys(balances);
@@ -146,8 +155,10 @@ async function calculateUniswapLPRewards(
 
 
   const shareHolderPayout = await _calculatePayoutsBetweenBlocks(
-    uniswapPool,
-      longToken,
+    longToken,
+    longPool,
+    shortToken,
+    shortPool,
     shareHolders,
     fromBlock,
     toBlock,
@@ -173,8 +184,10 @@ async function calculateUniswapLPRewards(
 // Calculate the payout to a list of `shareHolders` between `fromBlock` and `toBlock`. Split the block window up into
 // chunks of `blockPerSnapshot` and at each chunk assign `domPerSnapshot` at a prorata basis.
 async function _calculatePayoutsBetweenBlocks(
-  uniswapPool,
   longToken,
+  longPool,
+  shortToken,
+  shortPool,
   shareHolders,
   fromBlock,
   toBlock,
@@ -198,8 +211,10 @@ async function _calculatePayoutsBetweenBlocks(
   progressBar.start(snapshotsToTake, 0);
   for (let currentBlock = fromBlock; currentBlock < toBlock; currentBlock += blocksPerSnapshot) {
     shareHolderPayout = await _updatePayoutAtBlock(
-      uniswapPool,
-          longToken,
+      longToken,
+      longPool,
+      shortToken,
+      shortPool,
       currentBlock,
       shareHolderPayout,
       domPerSnapshot
@@ -214,8 +229,10 @@ async function _calculatePayoutsBetweenBlocks(
 // For a given `blockNumber` (snapshot in time), return an updated `shareHolderPayout` object that has appended
 // payouts for a given `uniswapPool` at a rate of `domPerSnapshot`.
 async function _updatePayoutAtBlock(
-  uniswapPool,
   longToken,
+  longPool,
+  shortToken,
+  shortPool,
   blockNumber,
   shareHolderPayout,
   domPerSnapshot
@@ -223,26 +240,39 @@ async function _updatePayoutAtBlock(
   console.log("got here");
 
   // Get the total supply of Uniswap Pool tokens at the given snapshot's block number.
-  const lpTokenSupplyAtSnapshot = toBN(await uniswapPool.methods.totalSupply().call(undefined, blockNumber));
+  const longLPTokenSupplyAtSnapshot = toBN(await longPool.methods.totalSupply().call(undefined, blockNumber));
+  const shortLPTokenSupplyAtSnapshot = toBN(await shortPool.methods.totalSupply().call(undefined, blockNumber));
 
   // Get the total number of synthetics in the Uniswap pool at the snapshot's block number.
-  const syntheticsInPoolAtSnapshot = toBN(
-    await longToken.methods.balanceOf(uniswapPool._address).call(undefined, blockNumber)
+  const longInPoolAtSnapshot = toBN(
+    await longToken.methods.balanceOf(longPool._address).call(undefined, blockNumber)
+  );
+  const shortInPoolAtSnapshot = toBN(
+    await shortToken.methods.balanceOf(shortPool._address).call(undefined, blockNumber)
   );
 
 
   // Compute how many synthetics each LP token is redeemable for at the current pool weighting.
-  const lpTokensToSynthetics = syntheticsInPoolAtSnapshot.mul(toBN(toWei("1"))).div(lpTokenSupplyAtSnapshot);
+  const longsPerLPToken = longInPoolAtSnapshot.mul(toBN(toWei("1"))).div(longLPTokenSupplyAtSnapshot);
+  const shortsPerLPToken = shortInPoolAtSnapshot.mul(toBN(toWei("1"))).div(shortLPTokenSupplyAtSnapshot);
 
   // Get the given holders balance at the given block. Generate an array of promises to resolve in parallel.
-  const uniswapBalanceResults = await Promise.map(
+  const longBalanceResults = await Promise.map(
     Object.keys(shareHolderPayout),
-    (shareHolder) => uniswapPool.methods.balanceOf(shareHolder).call(undefined, blockNumber),
+    (shareHolder) => longPool.methods.balanceOf(shareHolder).call(undefined, blockNumber),
+    {
+      concurrency: 50, // Keep infura happy about the number of incoming requests.
+    }
+  );
+  const shortBalanceResults = await Promise.map(
+    Object.keys(shareHolderPayout),
+    (shareHolder) => shortPool.methods.balanceOf(shareHolder).call(undefined, blockNumber),
     {
       concurrency: 50, // Keep infura happy about the number of incoming requests.
     }
   );
 
+  console.log("got here too")
   // For each balance result, calculate their associated payment addition. The data structures below are used to store
   // and compute the "effective" ballance. this is the minimum of the token sponsors sponsor position OR redeemable
   // synths from their LP position.
@@ -326,9 +356,7 @@ function _saveShareHolderPayout(
 async function findTokenHolders(longToken, toBlock) {
   const startBlock = 1111111; // discover later
 
-  const logs = await longToken.getPastEvents('Transfer', {
-    fromBlock: startBlock,
-    toBlock: toBlock});
+  const logs = await longToken.queryFilter(longToken.filters.Transfer(), startBlock, toBlock);
 
   return logs.map(x => x.returnValues.to);
 }
@@ -368,9 +396,10 @@ async function Main(callback) {
       argv.fromBlock,
       argv.toBlock,
       argv.tokenName,
-      argv.poolAddress,
       argv.longAddress,
+      argv.longPoolAddress,
       argv.shortAddress,
+      argv.shortPoolAddress,
       argv.stakingAddress,
       argv.week,
       argv.domPerWeek,
