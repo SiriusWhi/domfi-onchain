@@ -1,0 +1,23 @@
+{
+  "name": "domfi-usage",
+  "version": "1.0.0",
+  "description": "usage rewards for domination finance",
+  "main": "CalculateUsageRewards.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "Gabriel Krell",
+  "license": "ISC",
+  "dependencies": {
+    "@alch/alchemy-web3": "^1.1.1",
+    "@uma/common": "^2.6.0",
+    "@uma/core": "^2.7.0",
+    "bluebird": "^3.7.2",
+    "cli-progress": "^3.9.0",
+    "dotenv": "^10.0.0",
+    "fs": "^0.0.1-security",
+    "minimist": "^1.2.5",
+    "node-fetch": "^2.6.1",
+    "path": "^0.12.7"
+  }
+}
