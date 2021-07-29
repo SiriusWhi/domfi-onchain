@@ -171,7 +171,7 @@ async function calculateUsageRewards(
   delete balances[stakingAddress.toLowerCase()];
 
   const shareHolders = Object.keys(balances);
-  console.log(shareHolders);
+  console.log(`Shareholders: ${shareHolders}`);
 
 
   const shareHolderPayout = await _calculatePayoutsBetweenBlocks(
@@ -256,25 +256,8 @@ async function _calculatePayoutsBetweenBlocks(
 }
 
 async function getDominance(symbol, timestamp) {
-  // console.log(`\nrequesting ${symbol} dominance @ ${timestamp}`)
-  let increment = 0;
-  let dominance = 0;
-  let t = timestamp;
-  while (!dominance) {
-    t += increment;
-    // next time, go 1 more in opposite direction
-    sign = increment / Math.abs(increment) || -1;
-    increment = sign * -1 * (Math.abs(increment) + 60);
-    // console.log(`sign: ${sign} increment: ${increment} t: ${t}`)
-
-    // console.log(`\n getting ${symbol} dominance @ ${t}`)
-    // console.log(`https://api.domination.finance/api/v0/price/${symbol}?timestamp=${t}`)
-    const j = await fetch(`https://api.domination.finance/api/v0/price/${symbol}?timestamp=${t}`)
-      .then(r => r.json());
-    dominance = j['price'];
-  }
-  // console.log(`\n ${symbol} dominance ${dominance} @ ${t}`)
-  return dominance;
+  const r = await fetch(`https://api.domination.finance/api/v0/price/${symbol}?timestamp=${timestamp}&mode=near`);
+  return (await r.json())['price'];
 }
 
 // For a given `blockNumber` (snapshot in time), return an updated `shareHolderPayout` object that has appended
