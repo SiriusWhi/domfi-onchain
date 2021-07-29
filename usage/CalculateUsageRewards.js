@@ -19,8 +19,8 @@ for LONG and SHORT
 
 /*  # TODO: confirm lowerBound and upperBound are not wei scaled in contract
 node CalculateUsageRewards.js \
---fromBlock 26396474 \
---toBlock 26409121 \
+--fromBlock 26444251 \
+--toBlock 26451608 \
 --domPerWeek 1000 \
 --week 1 \
 --network kovan_mnemonic \
@@ -28,9 +28,10 @@ node CalculateUsageRewards.js \
 --upperBound 100 \
 --longAddress "0x458b7adf6c8bde12e6034c3d49e99f29830b96a3" \
 --longPoolAddress "0x075b7f2a77e84b43913c56f4699845ddc178c2fc" \
+--longStakingAddress "0x8EF5280D4BAc51F404BF7f20E2Da02D5dF41772d" \
 --shortAddress "0xb5ef720bffb08a0604c176bfc819595c03643b76" \
 --shortPoolAddress "0xb5a6fab86f536bc6918fdb3c414b7576dc0ccc98" \
---stakingAddress "0x406afd87605f1bee4224d5f748b08d91b4dc806d"
+# --shortStakingAddress ""
 */
 
 const cliProgress = require("cli-progress");
@@ -39,8 +40,8 @@ const Promise = require("bluebird");
 const fetch = require("node-fetch");
 const fs = require("fs");
 const path = require("path");
+const assert = require('assert')
 
-unV2ABI = require('@uniswap/v2-core/build/IUniswapV2ERC20.json')
 const { ethers } = require("ethers");
 toBN = ethers.BigNumber.from
 toWei = ethers.utils.parseEther
@@ -81,9 +82,30 @@ abi.UNIV2 = [
   "function nonces(address owner) external view returns (uint)",
   "function permit(address owner, address spender, uint value, uint deadline, uint8 v, bytes32 r, bytes32 s) external",
 ];
+abi.staking = [
+  'constructor(address lpToken, address dom, uint256 totalDOM, uint256 lspExpiration)',
+  'event Staked(address indexed user, uint256 amount, uint256 total)',
+  'event Unstaked(address indexed user, uint256 amount, uint256 total)',
+  'function TOTAL_DOM() view returns (uint256)',
+  'function tokensReceived(address, address, address, uint256 amount, bytes, bytes)',
+  'function initialize()',
+  'function stake(uint256 _amount)',
+  'function stakeFor(address _user, uint256 _amount)',
+  'function unstake(uint256 _amount)',
+  'function withdrawLeftover()',
+  'function stakingToken() view returns (address)',
+  'function rewardToken() view returns (address)',
+  'function totalStaked() view returns (uint256)',
+  'function remainingDOM() view returns (uint256)',
+  'function totalStakedFor(address _addr) view returns (uint256)',
+  'function Info(address _addr) view returns (uint256 _reward, uint256 _penalty, uint256 _netClaim)',
+  'function supportsHistory() pure returns (bool)'
+]
+
 
 const argv = require("minimist")(process.argv.slice(), {
-  string: ["longAddress", "longPoolAddress", "shortAddress", "shortPoolAddress", "stakingAddress"],
+  string: ["longAddress", "longPoolAddress", "longStakingAddress",
+    "shortAddress", "shortPoolAddress", "shortStakingAddress"],
   integer: ["fromBlock", "toBlock", "week", "domPerWeek", "blocksPerSnapshot"],
 });
 
@@ -94,36 +116,39 @@ async function calculateUsageRewards(
   upperBound,
   longAddress,
   longPoolAddress,
+  longStakingAddress,
   shortAddress,
   shortPoolAddress,
-  stakingAddress,
+  shortStakingAddress,
   week,
   domPerWeek = 25000,
   blocksPerSnapshot = 256
 ) {
   // Create two moment objects from the input string. Convert to UTC time zone. As no time is provided in the input
   // will parse to 12:00am UTC.
-  if (
-    !ethers.utils.isAddress(longAddress) ||
-    !ethers.utils.isAddress(longPoolAddress) ||
-    !ethers.utils.isAddress(shortAddress) ||
-    !ethers.utils.isAddress(shortPoolAddress) ||
-    !ethers.utils.isAddress(stakingAddress) ||
-    !fromBlock ||
-    !toBlock ||
-    !week
-  ) {
-
-    throw new Error(
-      "Missing or invalid parameter! Provide longAddress, longPoolAddress, shortAddress, shortPoolAddress, stakingAddress, fromBlock, toBlock, week"
-    );
-  }
+  assert(ethers.utils.isAddress(longAddress), "Missing or invalid longAddress");
+  assert(ethers.utils.isAddress(longPoolAddress), "Missing or invalid longPoolAddress");
+  assert(ethers.utils.isAddress(longStakingAddress) || !longStakingAddress,
+    "Invalid longStakingAddress");
+  assert(ethers.utils.isAddress(shortAddress), "Missing or invalid shortAddress");
+  assert(ethers.utils.isAddress(shortPoolAddress), "Missing or invalid shortPoolAddress");
+  assert(ethers.utils.isAddress(shortStakingAddress) || !shortStakingAddress,
+    "Missing or invalid shortStakingAddress");
+  assert(fromBlock, "Missing or invalid fromBlock");
+  assert(toBlock, "Missing or invalid toBlock");
+  assert(week, "Missing or invalid week");
 
   // Initialize the contract we'll need for computation.
   const longToken = new ethers.Contract(longAddress, abi.ERC20, provider);
   const longPool = new ethers.Contract(longPoolAddress, abi.UNIV2, provider);
+  const longStaking = longStakingAddress ?
+    new ethers.Contract(longStakingAddress, abi.staking, provider) :
+    null;
   const shortToken = new ethers.Contract(shortAddress, abi.ERC20, provider);
   const shortPool = new ethers.Contract(shortPoolAddress, abi.UNIV2, provider);
+  const shortStaking = shortStakingAddress ?
+    new ethers.Contract(shortStakingAddress, abi.staking, provider) :
+    null;
 
   const tokenName = await longToken.symbol();
 
@@ -167,8 +192,9 @@ async function calculateUsageRewards(
     address => balances[address.toLowerCase()] = 0
   );
   delete balances[longPoolAddress.toLowerCase()]; // these will be handled separately
+  delete balances[longStakingAddress?.toLowerCase()];
   delete balances[shortPoolAddress.toLowerCase()];
-  delete balances[stakingAddress.toLowerCase()];
+  delete balances[shortStakingAddress?.toLowerCase()];
 
   const shareHolders = Object.keys(balances);
   console.log(`Shareholders: ${shareHolders}`);
@@ -179,8 +205,10 @@ async function calculateUsageRewards(
     upperBound,
     longToken,
     longPool,
+    longStaking,
     shortToken,
     shortPool,
+    shortStaking,
     shareHolders,
     fromBlock,
     toBlock,
@@ -200,7 +228,6 @@ async function calculateUsageRewards(
     longPoolAddress,
     shortAddress,
     shortPoolAddress,
-    stakingAddress,
     blocksPerSnapshot,
     domPerWeek
   );
@@ -213,8 +240,10 @@ async function _calculatePayoutsBetweenBlocks(
   upperBound,
   longToken,
   longPool,
+  longStaking,
   shortToken,
   shortPool,
+  shortStaking,
   shareHolders,
   fromBlock,
   toBlock,
@@ -242,8 +271,10 @@ async function _calculatePayoutsBetweenBlocks(
       upperBound,
       longToken,
       longPool,
+      longStaking,
       shortToken,
       shortPool,
+      shortStaking,
       currentBlock,
       shareHolderPayout,
       domPerSnapshot
@@ -267,8 +298,10 @@ async function _updatePayoutAtBlock(
   upperBound,
   longToken,
   longPool,
+  longStaking,
   shortToken,
   shortPool,
+  shortStaking,
   blockNumber,
   shareHolderPayout,
   domPerSnapshot
@@ -297,21 +330,25 @@ async function _updatePayoutAtBlock(
   const shortInPoolAtSnapshot = await shortToken.balanceOf(shortPool.address, {blockTag: blockNumber});
   // console.log(`longInPoolAtSnapshot: ${longInPoolAtSnapshot} shortInPoolAtSnapshot: ${shortInPoolAtSnapshot}`);
 
-  // // Compute how many synthetics each LP token is redeemable for at the current pool weighting.
-  // const longsPerLPToken = longInPoolAtSnapshot.mul(toWei("1")).div(longLPTokenSupplyAtSnapshot);
-  // const shortsPerLPToken = shortInPoolAtSnapshot.mul(toWei("1")).div(shortLPTokenSupplyAtSnapshot);
-
   // Get the given holders balance at the given block. Generate an array of promises to resolve in parallel.
   const longBalanceResults = await Promise.map(
     Object.keys(shareHolderPayout),
-    (shareHolder) => longPool.balanceOf(shareHolder, {blockTag: blockNumber}),
+    async function (shareHolder) {  
+      const direct = await longPool.balanceOf(shareHolder, {blockTag: blockNumber});
+      const staked = await longStaking?.totalStakedFor(shareHolder, {blockTag: blockNumber}) ?? 0;
+      return direct.add(staked);
+    },
     {
       concurrency: 50, // Keep infura happy about the number of incoming requests.
     }
   );
   const shortBalanceResults = await Promise.map(
     Object.keys(shareHolderPayout),
-    (shareHolder) => shortPool.balanceOf(shareHolder, {blockTag: blockNumber}),
+    async function (shareHolder) {  
+      const direct = await shortPool.balanceOf(shareHolder, {blockTag: blockNumber});
+      const staked = await shortStaking?.totalStakedFor(shareHolder, {blockTag: blockNumber}) ?? 0;
+      return direct.add(staked);
+    },
     {
       concurrency: 50, // Keep infura happy about the number of incoming requests.
     }
@@ -409,7 +446,6 @@ function _saveShareHolderPayout(
   longPoolAddress,
   shortAddress,
   shortPoolAddress,
-  stakingAddress,
   blocksPerSnapshot,
   domPerWeek
 ) {
@@ -428,7 +464,6 @@ function _saveShareHolderPayout(
     longPoolAddress,
     shortAddress,
     shortPoolAddress,
-    stakingAddress,
     blocksPerSnapshot,
     domPerWeek,
     shareHolderPayout,
@@ -486,9 +521,10 @@ async function Main(callback) {
       argv.upperBound,
       argv.longAddress,
       argv.longPoolAddress,
+      argv.longStakingAddress,
       argv.shortAddress,
       argv.shortPoolAddress,
-      argv.stakingAddress,
+      argv.shortStakingAddress,
       argv.week,
       argv.domPerWeek,
       argv.blocksPerSnapshot
