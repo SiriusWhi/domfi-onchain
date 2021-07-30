@@ -28,7 +28,8 @@ const allocations = [
   { address: '0x0000000000000000000000000000000000000001', amount:  new BigNumber("79e24") },
 ];
 
-module.exports = async function (deployer, network, accounts) {
+// eslint-disable-next-line no-unused-vars
+module.exports = async function (deployer) {
   const dom = await DomToken.deployed();
   const vFactory = await VesterFactory.deployed();
 

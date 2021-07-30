@@ -5,7 +5,7 @@ import "@openzeppelin/contracts/token/ERC777/IERC777Recipient.sol";
 import "@openzeppelin/contracts/utils/introspection/IERC1820Registry.sol";
 import "@openzeppelin/contracts/access/AccessControl.sol";
 
-contract VesterFactory{
+contract VesterFactory {
 
     bytes32 public constant TRANSFER_ROLE = keccak256("TRANSFER");
     address DomToken;
@@ -43,7 +43,7 @@ contract VesterFactory{
     }
 }
 
-contract Vester is IERC777Recipient{
+contract Vester is IERC777Recipient {
 
     IERC1820Registry private _erc1820 = IERC1820Registry(0x1820a4B7618BdE71Dce8cdc73aAB6C95905faD24);
     bytes32 constant private TOKENS_RECIPIENT_INTERFACE_HASH = keccak256("ERC777TokensRecipient");
