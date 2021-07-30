@@ -19,7 +19,7 @@ for LONG and SHORT
 
 /*  # TODO: confirm lowerBound and upperBound are not wei scaled in contract
 node CalculateUsageRewards.js \
---fromBlock 26444251 \
+--fromBlock 26444411 \
 --toBlock 26451608 \
 --domPerWeek 1000 \
 --week 1 \
@@ -413,7 +413,6 @@ async function _updatePayoutAtBlock(
       .div(toBN("10000"))
       .div(toBN(toWei("1")));
 
-    // Lastly, update the payout object for the given shareholder. This is their previous payout value + their new payout.
     shareHolderPayout[shareHolderAddress] = shareHolderPayout[shareHolderAddress].add(shareHolderPayoutAtSnapshot);
   });
   Object.keys(holderShortBalance).forEach((shareHolderAddress) => {
@@ -428,7 +427,6 @@ async function _updatePayoutAtBlock(
       .div(toWei("1"))
       .div(toBN("10000"));
 
-    // Lastly, update the payout object for the given shareholder. This is their previous payout value + their new payout.
     shareHolderPayout[shareHolderAddress] = shareHolderPayout[shareHolderAddress].add(shareHolderPayoutAtSnapshot);
   });
 
@@ -452,7 +450,7 @@ function _saveShareHolderPayout(
   // First, clean the shareHolderPayout of all zero recipients and convert from wei scaled number.
   for (let shareHolder of Object.keys(shareHolderPayout)) {
     if (shareHolderPayout[shareHolder].toString() == "0") delete shareHolderPayout[shareHolder];
-    else shareHolderPayout[shareHolder] = fromWei(shareHolderPayout[shareHolder]);
+    else shareHolderPayout[shareHolder] = shareHolderPayout[shareHolder].toString();
   }
 
   // Format output and save to file.
