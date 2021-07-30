@@ -40,18 +40,18 @@ const Promise = require("bluebird");
 const fetch = require("node-fetch");
 const fs = require("fs");
 const path = require("path");
-const assert = require('assert')
+const assert = require('assert');
 
 const { ethers } = require("ethers");
-toBN = ethers.BigNumber.from
-toWei = ethers.utils.parseEther
-fromWei = ethers.utils.formatEther
+const toBN = ethers.BigNumber.from;
+const toWei = ethers.utils.parseEther;
+const fromWei = ethers.utils.formatEther;
 
-network = 'kovan'
+const network = 'kovan';
 
-provider = new ethers.providers.AlchemyProvider(network, process.env.ALCHEMY_API_KEY)
+const provider = new ethers.providers.AlchemyProvider(network, process.env.ALCHEMY_API_KEY);
 
-abi = ({})
+const abi = ({});
 abi.ERC20 = [
   "event Approval(address indexed owner, address indexed spender, uint value)",
   "event Transfer(address indexed from, address indexed to, uint value)",
@@ -100,12 +100,12 @@ abi.staking = [
   'function totalStakedFor(address _addr) view returns (uint256)',
   'function Info(address _addr) view returns (uint256 _reward, uint256 _penalty, uint256 _netClaim)',
   'function supportsHistory() pure returns (bool)'
-]
+];
 
 
 const argv = require("minimist")(process.argv.slice(), {
   string: ["longAddress", "longPoolAddress", "longStakingAddress",
-    "shortAddress", "shortPoolAddress", "shortStakingAddress"],
+           "shortAddress", "shortPoolAddress", "shortStakingAddress"],
   integer: ["fromBlock", "toBlock", "week", "domPerWeek", "blocksPerSnapshot"],
 });
 
@@ -141,14 +141,14 @@ async function calculateUsageRewards(
   // Initialize the contract we'll need for computation.
   const longToken = new ethers.Contract(longAddress, abi.ERC20, provider);
   const longPool = new ethers.Contract(longPoolAddress, abi.UNIV2, provider);
-  const longStaking = longStakingAddress ?
-    new ethers.Contract(longStakingAddress, abi.staking, provider) :
-    null;
+  const longStaking = longStakingAddress
+    ? new ethers.Contract(longStakingAddress, abi.staking, provider)
+    : null;
   const shortToken = new ethers.Contract(shortAddress, abi.ERC20, provider);
   const shortPool = new ethers.Contract(shortPoolAddress, abi.UNIV2, provider);
-  const shortStaking = shortStakingAddress ?
-    new ethers.Contract(shortStakingAddress, abi.staking, provider) :
-    null;
+  const shortStaking = shortStakingAddress
+    ? new ethers.Contract(shortStakingAddress, abi.staking, provider)
+    : null;
 
   const tokenName = await longToken.symbol();
 
@@ -253,7 +253,7 @@ async function _calculatePayoutsBetweenBlocks(
 ) {
   // Create a structure to store the payouts for all historic shareholders.
   let shareHolderPayout = {};
-  for (let shareHolder of shareHolders) {
+  for (const shareHolder of shareHolders) {
     shareHolderPayout[shareHolder] = toBN("0");
   }
 
@@ -355,10 +355,10 @@ async function _updatePayoutAtBlock(
   );
 
   // For each balance result, calculate their held LONG or SHORT tokens
-  let holderLongBalance = {};
-  let holderShortBalance = {};
+  const holderLongBalance = {};
+  const holderShortBalance = {};
   longBalanceResults.forEach(function (uniswapResult, index) {
-    if (uniswapResult === "0") return;
+    if (uniswapResult === "0") {return;}
     
     const shareHolderAddress = Object.keys(shareHolderPayout)[index];
     const bal = holderLongBalance[shareHolderAddress] || toBN("0");
@@ -366,7 +366,7 @@ async function _updatePayoutAtBlock(
     // console.log(`long bal: ${bal} add: ${uniswapResult} new: ${holderLongBalance[shareHolderAddress]}`);
   });
   shortBalanceResults.forEach(function (uniswapResult, index) {
-    if (uniswapResult === "0") return;
+    if (uniswapResult === "0") {return;}
     
     const shareHolderAddress = Object.keys(shareHolderPayout)[index];
     const bal = holderShortBalance[shareHolderAddress] || toBN("0");
@@ -447,10 +447,10 @@ function _saveShareHolderPayout(
   blocksPerSnapshot,
   domPerWeek
 ) {
-  // First, clean the shareHolderPayout of all zero recipients and convert from wei scaled number.
-  for (let shareHolder of Object.keys(shareHolderPayout)) {
-    if (shareHolderPayout[shareHolder].toString() == "0") delete shareHolderPayout[shareHolder];
-    else shareHolderPayout[shareHolder] = shareHolderPayout[shareHolder].toString();
+  // Clean the shareHolderPayout of all zero recipients
+  for (const shareHolder of Object.keys(shareHolderPayout)) {
+    if (shareHolderPayout[shareHolder].toString() == "0") {delete shareHolderPayout[shareHolder];}
+    else {shareHolderPayout[shareHolder] = shareHolderPayout[shareHolder].toString();}
   }
 
   // Format output and save to file.
@@ -504,7 +504,7 @@ async function _fetchUniswapPoolInfo(poolAddress) {
   if (data.liquidityPositions.length > 0) {
     return data.liquidityPositions;
   }
-  console.log(data)
+  console.log(data);
   throw "⚠️  Uniswap pool provided is not indexed in the subgraph or bad address!";
 }
 
@@ -527,7 +527,8 @@ async function Main(callback) {
       argv.domPerWeek,
       argv.blocksPerSnapshot
     );
-  } catch (error) {
+  }
+  catch (error) {
     console.error(error);
   }
   callback();
@@ -537,7 +538,10 @@ function nodeCallback(err) {
   if (err) {
     console.error(err);
     process.exit(1);
-  } else process.exit(0);
+  }
+  else {
+    process.exit(0);
+  }
 }
 
 // If called directly by node, execute the Poll Function. This lets the script be run as a node process.
