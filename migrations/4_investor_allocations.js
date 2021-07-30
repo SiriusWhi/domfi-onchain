@@ -1,4 +1,5 @@
 const BigNumber = require('bignumber.js');
+const luxon = require('luxon');
 
 const DomToken = artifacts.require("DominationToken");
 const VesterFactory = artifacts.require("VesterFactory");
@@ -31,17 +32,20 @@ module.exports = async function (deployer, network, accounts) {
   const dom = await DomToken.deployed();
   const vFactory = await VesterFactory.deployed();
 
-  for (const allocation of allocations) {
-    // vFactory.VesterCreated().on('data', event => console.log(event));
+  const vestingBegin = luxon.DateTime.now().plus({hours: 1});
+  const vestingCliff = vestingBegin.plus({months: 6});
+  const vestingEnd = vestingBegin.plus({years: 3});
+  const timeout = luxon.Duration.fromObject({ months: 1 });
 
+  for (const allocation of allocations) {
     const result = await vFactory.createVester(
       DomToken.address,
       allocation.address,
       allocation.amount,
-      1629032400, // vestingBegin, 2021-08-15
-      1644930000, // vestingCliff, 2022-02-15. 6 months
-      1721048400, // vestingEnd, 2024-08-15. 3 years
-      2592000     // timeout, 1 month
+      Math.floor(vestingBegin.toSeconds()),
+      Math.floor(vestingCliff.toSeconds()),
+      Math.floor(vestingEnd.toSeconds()),
+      timeout.as('seconds')
     );
     const vester = result.logs[0].args[0]; // hack, should wait for an event to be emitted
 
