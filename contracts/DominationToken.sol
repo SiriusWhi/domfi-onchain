@@ -13,7 +13,6 @@ contract DominationToken is ERC777, AccessControl
 
     all above numbers * 1e18 in internal representation
      */
-    uint256 constant maxSupply = 15e26;
 
     bytes32 public constant TRANSFER_ROLE = keccak256("TRANSFER");
     bytes32 public constant TRANSFER_TOGGLER = keccak256("TRANSFER_TOGGLER");

@@ -8,4 +8,5 @@ module.exports = async function (deployer) {
   const vFactory = await deployer.deploy(VesterFactory, dom.address);
   // factory can give children the transfer role
   await dom.grantRole(DEFAULT_ADMIN_ROLE, vFactory.address);
+  await dom.grantRole(web3.utils.sha3("TRANSFER"), vFactory.address);
 };

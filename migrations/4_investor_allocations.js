@@ -30,9 +30,9 @@ const allocations = [
 
 // eslint-disable-next-line no-unused-vars
 module.exports = async function (deployer, network) {
-  if (network === 'development') {
-    return; // deploying these is annoying during tests
-  }
+  // if (network === 'development') {
+  //   return; // deploying these is annoying during tests
+  // }
   const dom = await DomToken.deployed();
   const vFactory = await VesterFactory.deployed();
 
@@ -41,21 +41,24 @@ module.exports = async function (deployer, network) {
   const vestingEnd = vestingBegin.plus({years: 3});
   const timeout = luxon.Duration.fromObject({ months: 1 });
 
+  console.log(`Deployed with
+    vestingBegin: ${vestingBegin.toSeconds()}
+    vestingCliff: ${vestingCliff.toSeconds()}
+    vestingEnd: ${vestingEnd.toSeconds()}
+    timeout: ${timeout.as('seconds')}`);
+
   for (const allocation of allocations) {
-    const result = await vFactory.createVester(
-      DomToken.address,
+    const start = await web3.eth.getBlockNumber();
+    const data = web3.eth.abi.encodeParameters(['address','uint','uint','uint','uint'], [
       allocation.address,
-      allocation.amount,
       Math.floor(vestingBegin.toSeconds()),
       Math.floor(vestingCliff.toSeconds()),
       Math.floor(vestingEnd.toSeconds()),
       timeout.as('seconds')
-    );
-    const vester = result.logs[0].args[0]; // hack, should wait for an event to be emitted
-
-    console.log(vester);
-
-    // fund the contract
-    await dom.send(vester, allocation.amount, 0);
+    ]);
+    
+    await dom.send(vFactory.address, allocation.amount, data);
+    const eventList = await vFactory.getPastEvents({ fromBlock: start}, 'VesterCreated');
+    console.log(`${eventList[0].args.childAddress} ${allocation.amount}`);
   }
 };

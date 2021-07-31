@@ -1,54 +1,66 @@
 pragma solidity ^0.8.0;
 
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC777/IERC777.sol";
 import "@openzeppelin/contracts/token/ERC777/IERC777Recipient.sol";
 import "@openzeppelin/contracts/utils/introspection/IERC1820Registry.sol";
 import "@openzeppelin/contracts/access/AccessControl.sol";
 
-contract VesterFactory {
+contract VesterFactory is IERC777Recipient {
+
+    bytes32 constant private TOKENS_RECIPIENT_INTERFACE_HASH = keccak256("ERC777TokensRecipient");
+    IERC1820Registry private _erc1820 = IERC1820Registry(0x1820a4B7618BdE71Dce8cdc73aAB6C95905faD24);
 
     bytes32 public constant TRANSFER_ROLE = keccak256("TRANSFER");
     address DomToken;
 
     constructor(address DomToken_) {
         DomToken = DomToken_;
+        _erc1820.setInterfaceImplementer(address(this), TOKENS_RECIPIENT_INTERFACE_HASH, address(this));
     }
 
     event VesterCreated(address childAddress);
 
 
-    function createVester(
-        address dom,
-        address recipient,
-        uint vestingAmount,
+    function tokensReceived(
+        address /* operator */,
+        address /* from */,
+        address /* to */,
+        uint256 vestingAmount,
+        bytes calldata userData,
+        bytes calldata /* operatorData */
+    ) external override {
+        require(msg.sender == DomToken, "VesterFactory:: tokensReceived: not DOM token");
+
+        (address recipient,
         uint vestingBegin,
         uint vestingCliff,
         uint vestingEnd,
-        uint timeout
-    ) external returns (address) {
+        uint timeout) = abi.decode(
+            userData,
+            (address, uint, uint, uint, uint)
+        );
+
         Vester vester = new Vester(
-            dom,
+            DomToken,
             recipient,
             vestingAmount,
             vestingBegin,
             vestingCliff,
             vestingEnd,
-            timeout);
-
-        emit VesterCreated(address(vester));
+            timeout
+        );
 
         AccessControl(DomToken).grantRole(TRANSFER_ROLE, address(vester));
+        IERC20(DomToken).transfer(address(vester), vestingAmount);
 
-        return address(vester);
-    }
+        emit VesterCreated(address(vester));
+     }
 }
 
-contract Vester is IERC777Recipient {
+contract Vester {
 
-    IERC1820Registry private _erc1820 = IERC1820Registry(0x1820a4B7618BdE71Dce8cdc73aAB6C95905faD24);
-    bytes32 constant private TOKENS_RECIPIENT_INTERFACE_HASH = keccak256("ERC777TokensRecipient");
-
-    IERC777 public dom;
+    IERC20 public dom;
     address public recipient;
 
     uint public vestingAmount;
@@ -58,8 +70,6 @@ contract Vester is IERC777Recipient {
     uint public timeout;
 
     uint public lastUpdate;
-
-    bool funded = false;
 
     constructor(
         address dom_,
@@ -74,9 +84,7 @@ contract Vester is IERC777Recipient {
         require(vestingCliff_ >= vestingBegin_, 'Vester::constructor: cliff is too early');
         require(vestingEnd_ > vestingCliff_, 'Vester::constructor: end is too early');
 
-        _erc1820.setInterfaceImplementer(address(this), TOKENS_RECIPIENT_INTERFACE_HASH, address(this));
-
-        dom = IERC777(dom_);
+        dom = IERC20(dom_);
         recipient = recipient_;
 
         vestingAmount = vestingAmount_;
@@ -86,20 +94,6 @@ contract Vester is IERC777Recipient {
         timeout = timeout_;
 
         lastUpdate = vestingBegin;
-    }
-
-    function tokensReceived(
-        address /* operator */,
-        address /* from */,
-        address /* to */,
-        uint256 amount,
-        bytes calldata /* userData */,
-        bytes calldata /* operatorData */
-    ) external override {
-        require(msg.sender == address(dom), "Vester:: tokensReceived: not DOM token");
-        require(amount == vestingAmount, "Vester:: tokensReceived: incorrect amount");
-        require(funded == false, "Vester:: tokensReceived: already funded");
-        funded = true;
     }
 
     function setRecipient(address recipient_) public {
@@ -117,6 +111,6 @@ contract Vester is IERC777Recipient {
             amount = vestingAmount * (block.timestamp - lastUpdate) / (vestingEnd - vestingBegin);
             lastUpdate = block.timestamp;
         }
-        dom.send(recipient, amount, "");
+        dom.transfer(recipient, amount);
     }
 }
