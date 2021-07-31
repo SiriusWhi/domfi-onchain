@@ -9,6 +9,7 @@ const assert = require("chai").assert;
 contract('Vester', (accounts) => {
   let dom;
   let vester;
+  let vestingStart;
   const cliffDuration = 10000;
   const vestingDuration = 100000;
   const deployer = accounts[0];
@@ -19,15 +20,15 @@ contract('Vester', (accounts) => {
 
   beforeEach(async () => {
     await time.advanceBlock();
-    const start = (await time.latest()).toNumber() + 20; // some slop
+    vestingStart = (await time.latest()).toNumber() + 20; // slop for slow tests
   
     vester = await Vester.new(
       dom.address,
       deployer,
       10000,
-      start,
-      start + cliffDuration,
-      start + vestingDuration,
+      vestingStart,
+      vestingStart + cliffDuration,
+      vestingStart + vestingDuration,
       100, // uint timeout_,
     );
     await dom.grantRole(web3.utils.sha3("TRANSFER"), vester.address);
@@ -45,7 +46,6 @@ contract('Vester', (accounts) => {
   });
 
   it("should pay out linearly between cliff and end date", async () => {
-    const vestingStart = Number(await vester.vestingBegin());
     await time.increaseTo(vestingStart + vestingDuration / 2);
     const initialBalance = await dom.balanceOf(deployer);
     
@@ -56,7 +56,6 @@ contract('Vester', (accounts) => {
   });
 
   it("should not allow withdraws before timeout is up", async () => {
-    const vestingStart = Number(await vester.vestingBegin());
     await time.increaseTo(vestingStart + cliffDuration);
     await vester.claim();
     await time.increase(50); // less than the timeout
@@ -66,7 +65,6 @@ contract('Vester', (accounts) => {
 
   it("should emit all tokens after vesting is done", async () => {
     const initialBalance = await dom.balanceOf(deployer);
-    const vestingStart = Number(await vester.vestingBegin());
     await time.increaseTo(vestingStart + vestingDuration);
     await vester.claim();
     const finalBalance = await dom.balanceOf(deployer);
@@ -76,7 +74,6 @@ contract('Vester', (accounts) => {
   it("should allow a recipient to transfer claim rights", async () => {
     const newRecipient = accounts[1];
     const initialBalance = await dom.balanceOf(newRecipient);
-    const vestingStart = Number(await vester.vestingBegin());
     
     await vester.setRecipient(newRecipient);
     await time.increaseTo(vestingStart + vestingDuration);
