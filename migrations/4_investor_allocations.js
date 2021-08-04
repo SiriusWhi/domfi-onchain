@@ -30,9 +30,10 @@ const allocations = [
 
 // eslint-disable-next-line no-unused-vars
 module.exports = async function (deployer, network) {
-  // if (network === 'development') {
-  //   return; // deploying these is annoying during tests
-  // }
+  if (network === 'development') {
+    console.log("Not distributing investor allocations on dev network");
+    return; // deploying these is annoying during tests
+  }
   const dom = await DomToken.deployed();
   const vFactory = await VesterFactory.deployed();
 
