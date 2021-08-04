@@ -1,53 +1,64 @@
 const BigNumber = require('bignumber.js');
+const luxon = require('luxon');
 
 const DomToken = artifacts.require("DominationToken");
 const VesterFactory = artifacts.require("VesterFactory");
 
 const allocations = [
-    { address: '0x0000000000000000000000000000000000000001', amount:  new BigNumber("70e24") },
-    { address: '0x0000000000000000000000000000000000000001', amount:  new BigNumber("50e24") },
-    { address: '0x0000000000000000000000000000000000000001', amount:  new BigNumber("50e24") },
-    { address: '0x0000000000000000000000000000000000000001', amount:  new BigNumber("30e24") },
-    { address: '0x0000000000000000000000000000000000000001', amount:  new BigNumber("20e24") },
-    { address: '0x0000000000000000000000000000000000000001', amount:  new BigNumber("15e24") },
-    { address: '0x0000000000000000000000000000000000000001', amount:  new BigNumber("15e24") },
-    { address: '0x0000000000000000000000000000000000000001', amount: new BigNumber("7.5e24") },
-    { address: '0x0000000000000000000000000000000000000001', amount:   new BigNumber("6e24") },
-    { address: '0x0000000000000000000000000000000000000001', amount:   new BigNumber("5e24") },
-    { address: '0x0000000000000000000000000000000000000001', amount:   new BigNumber("5e24") },
-    { address: '0x0000000000000000000000000000000000000001', amount: new BigNumber("2.5e24") },
-    { address: '0x0000000000000000000000000000000000000001', amount:   new BigNumber("2e24") },
-    { address: '0x0000000000000000000000000000000000000001', amount:   new BigNumber("2e24") },
-    { address: '0x0000000000000000000000000000000000000001', amount:   new BigNumber("2e24") },
-    { address: '0x0000000000000000000000000000000000000001', amount:   new BigNumber("1e24") },
-    { address: '0x0000000000000000000000000000000000000001', amount:   new BigNumber("1e24") },
-    { address: '0x0000000000000000000000000000000000000001', amount:  new BigNumber("79e24") },
-    { address: '0x0000000000000000000000000000000000000001', amount:  new BigNumber("79e24") },
-    { address: '0x0000000000000000000000000000000000000001', amount:  new BigNumber("79e24") },
-    { address: '0x0000000000000000000000000000000000000001', amount:  new BigNumber("79e24") },
-]
+  { address: '0x0000000000000000000000000000000000000001', amount:  new BigNumber("70e24") },
+  { address: '0x0000000000000000000000000000000000000001', amount:  new BigNumber("50e24") },
+  { address: '0x0000000000000000000000000000000000000001', amount:  new BigNumber("50e24") },
+  { address: '0x0000000000000000000000000000000000000001', amount:  new BigNumber("30e24") },
+  { address: '0x0000000000000000000000000000000000000001', amount:  new BigNumber("20e24") },
+  { address: '0x0000000000000000000000000000000000000001', amount:  new BigNumber("15e24") },
+  { address: '0x0000000000000000000000000000000000000001', amount:  new BigNumber("15e24") },
+  { address: '0x0000000000000000000000000000000000000001', amount: new BigNumber("7.5e24") },
+  { address: '0x0000000000000000000000000000000000000001', amount:   new BigNumber("6e24") },
+  { address: '0x0000000000000000000000000000000000000001', amount:   new BigNumber("5e24") },
+  { address: '0x0000000000000000000000000000000000000001', amount:   new BigNumber("5e24") },
+  { address: '0x0000000000000000000000000000000000000001', amount: new BigNumber("2.5e24") },
+  { address: '0x0000000000000000000000000000000000000001', amount:   new BigNumber("2e24") },
+  { address: '0x0000000000000000000000000000000000000001', amount:   new BigNumber("2e24") },
+  { address: '0x0000000000000000000000000000000000000001', amount:   new BigNumber("2e24") },
+  { address: '0x0000000000000000000000000000000000000001', amount:   new BigNumber("1e24") },
+  { address: '0x0000000000000000000000000000000000000001', amount:   new BigNumber("1e24") },
+  { address: '0x0000000000000000000000000000000000000001', amount:  new BigNumber("79e24") },
+  { address: '0x0000000000000000000000000000000000000001', amount:  new BigNumber("79e24") },
+  { address: '0x0000000000000000000000000000000000000001', amount:  new BigNumber("79e24") },
+  { address: '0x0000000000000000000000000000000000000001', amount:  new BigNumber("79e24") },
+];
 
-module.exports = async function (deployer, network, accounts) {
-    dom = await DomToken.deployed();
-    vFactory = await VesterFactory.deployed();
+// eslint-disable-next-line no-unused-vars
+module.exports = async function (deployer, network) {
+  // if (network === 'development') {
+  //   return; // deploying these is annoying during tests
+  // }
+  const dom = await DomToken.deployed();
+  const vFactory = await VesterFactory.deployed();
 
-    for (const allocation of allocations) {
-        // vFactory.VesterCreated().on('data', event => console.log(event));
+  const vestingBegin = luxon.DateTime.now().plus({hours: 1});
+  const vestingCliff = vestingBegin.plus({months: 6});
+  const vestingEnd = vestingBegin.plus({years: 3});
+  const timeout = luxon.Duration.fromObject({ months: 1 });
 
-        result = await vFactory.createVester(
-            DomToken.address,
-            allocation.address,
-            allocation.amount,
-            1629032400, // vestingBegin, 2021-08-15
-            1644930000, // vestingCliff, 2022-02-15. 6 months
-            1721048400, // vestingEnd, 2024-08-15. 3 years
-            2592000     // timeout, 1 month
-        );
-        const vester = result.logs[0].args[0]; // hack, should wait for an event to be emitted
+  console.log(`Deployed with
+    vestingBegin: ${vestingBegin.toSeconds()}
+    vestingCliff: ${vestingCliff.toSeconds()}
+    vestingEnd: ${vestingEnd.toSeconds()}
+    timeout: ${timeout.as('seconds')}`);
 
-        console.log(vester);
-
-        // fund the contract
-        await dom.send(vester, allocation.amount, 0);
-    }
+  for (const allocation of allocations) {
+    const start = await web3.eth.getBlockNumber();
+    const data = web3.eth.abi.encodeParameters(['address','uint','uint','uint','uint'], [
+      allocation.address,
+      Math.floor(vestingBegin.toSeconds()),
+      Math.floor(vestingCliff.toSeconds()),
+      Math.floor(vestingEnd.toSeconds()),
+      timeout.as('seconds')
+    ]);
+    
+    await dom.send(vFactory.address, allocation.amount, data);
+    const eventList = await vFactory.getPastEvents({ fromBlock: start}, 'VesterCreated');
+    console.log(`${eventList[0].args.childAddress} ${allocation.amount}`);
+  }
 };

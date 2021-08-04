@@ -8,12 +8,11 @@ contract DominationToken is ERC777, AccessControl
 {
     /**
     1.5 billion tokens (to match initial valuation for convenience):
-        40% (600m)   to team & investors; 1 token per $ invested
+        40% (600m)   to team & investors; 100 tokens per $ invested
         60% (900m)   to DAO
 
     all above numbers * 1e18 in internal representation
      */
-    uint256 constant maxSupply = 15e26;
 
     bytes32 public constant TRANSFER_ROLE = keccak256("TRANSFER");
     bytes32 public constant TRANSFER_TOGGLER = keccak256("TRANSFER_TOGGLER");
@@ -22,12 +21,16 @@ contract DominationToken is ERC777, AccessControl
     constructor(address[] memory defaultOperators)
         ERC777("Domination Finance Token", "DOM", defaultOperators)
     {
-         // TODO include DAO address in params, grant this stuff there instead
-        _setupRole(TRANSFER_ROLE, msg.sender);
-        _setupRole(DEFAULT_ADMIN_ROLE, msg.sender); // ability to manage roles
+        // fund the DAO and give it permissions.
+        _setupRole(TRANSFER_ROLE, defaultOperators[0]);
+        _setupRole(TRANSFER_TOGGLER, defaultOperators[0]);
+        _setupRole(DEFAULT_ADMIN_ROLE, defaultOperators[0]);  // ability to manage roles
+        _mint(defaultOperators[0], 9e26, "", "");
         
+        // Grant deployer permissions and funds for vesting contracts.
+        _setupRole(TRANSFER_ROLE, msg.sender);
+        _setupRole(DEFAULT_ADMIN_ROLE, msg.sender);
         _mint(msg.sender, 6e26, "", "");
-        _mint(msg.sender, 9e26, "", "");
         
     }
 

@@ -4,7 +4,8 @@
   "description": "Token claim contracts for Domination Finance",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "truffle test",
+    "hooks": "git config core.hooksPath .githooks"
   },
   "author": "",
   "license": "ISC",
@@ -13,8 +14,17 @@
     "@openzeppelin/test-helpers": "^0.5.12",
     "@truffle/hdwallet-provider": "^1.4.1",
     "dotenv": "^10.0.0",
+    "luxon": "^2.0.1",
     "truffle": "^5.3.8",
     "truffle-assertions": "^0.9.2",
     "truffle-plugin-verify": "^0.5.9"
+  },
+  "devDependencies": {
+    "eslint": "^7.12.1",
+    "eslint-config-standard": "^16.0.3",
+    "eslint-plugin-import": "^2.22.1",
+    "eslint-plugin-node": "^11.1.0",
+    "eslint-plugin-promise": "^4.2.1",
+    "solhint": "^3.3.6"
   }
 }
