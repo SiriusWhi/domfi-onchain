@@ -127,7 +127,11 @@ contract Staking is IERC900, Modifiers, IERC777Recipient {
         return balances[_addr].staked;
     }
 
-    function Info(address _addr) external view afterInitialize returns (uint256 _reward, uint256 _penalty, uint256 _netClaim)  {
+    function Info(address _addr) external view afterInitialize returns (
+        uint256 _reward,
+        uint256 _penalty,
+        uint256 _netClaim
+    )  {
         // share of user's stake out of total staked
         uint256 s = balances[_addr].staked / _totalStaked;
 
