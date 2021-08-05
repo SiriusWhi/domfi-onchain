@@ -161,8 +161,7 @@ contract('Staking', (accounts) => {
     const oldOwnerBalance = await dom.balanceOf(deployer);
     assert(userRewards.gt(0), "user receives DOM");
     assert(stakingBalance.gt(0), "staking still has DOM left");
-    console.log(`stakingBalance: ${stakingBalance} userRewards: ${userRewards}`);
-    assert(stakingBalance.add(userRewards).eq(new BN(1000)));
+    assert(stakingBalance.add(userRewards).eq(new BN(1000)), "no DOM unaccounted for");
 
     await truffleAssert.reverts(staking.withdrawLeftover());
 
@@ -177,9 +176,29 @@ contract('Staking', (accounts) => {
       "all leftovers withdrawn to owner");
   });
 
-  it("should apply penalty function during the penalty period", async () => {
-  });
 
   it("should distribute quadratically during the rewards period", async () => {
+    // from spec doc, when penalty_duration <= x <= lsp_duration:
+    // reward = (x-7)^2/(LSP_DURATION-7)^2
+    // penalty = 0
+    await staking.initialize();
+    await LP.approve(staking.address, accountBalance, {from: user1});
+
+    const days = 140;
+    const LSPduration = stakingEnd.sub(stakingStart).div(time.duration.days(1));
+    const reward = ((days-7)**2) / ((LSPduration-7)**2);
+
+    const initialDom = await dom.balanceOf(user1);
+    const expectedReward = new BN(1000 * reward);
+
+    await staking.stake(accountBalance, {from: user1});
+    await time.increaseTo(stakingStart.add(time.duration.days(days)));
+    await staking.unstake(accountBalance, {from: user1});
+
+    const finalDom = await dom.balanceOf(user1);
+    console.log(expectedReward.toString());
+
+    assert(expectedReward.eq(finalDom.sub(initialDom)));
   });
+
 });
