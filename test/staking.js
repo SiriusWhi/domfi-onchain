@@ -12,7 +12,9 @@ contract('Staking', (accounts) => {
   let LP;
   let staking;
   let stakingStart;
+  let stakingEnd;
   const deployer = accounts[0];
+  const user1 = accounts[1];
   const accountBalance = new BN("250000000000000000000");
 
   before(async () => {
@@ -27,13 +29,13 @@ contract('Staking', (accounts) => {
 
     await time.advanceBlock();
     stakingStart = (await time.latest()).add(new BN(20)); // slop for slow tests
-
+    stakingEnd = stakingStart.add(time.duration.days(60));
 
     staking = await Staking.new(
       LP.address,
       dom.address,
       1000,
-      stakingStart.add(new BN(99999)),
+      stakingEnd,
     );
 
     await dom.grantRole(web3.utils.sha3("TRANSFER"), staking.address);
@@ -69,7 +71,7 @@ contract('Staking', (accounts) => {
     
   });
 
-  it("should allow users to withdraw at any time", async function foo() {
+  it("should allow users to withdraw at any time", async () => {
     await staking.initialize();
     await LP.approve(staking.address, accountBalance);
     await staking.stake(accountBalance);
@@ -101,6 +103,15 @@ contract('Staking', (accounts) => {
   });
 
   it("should distribute all DOM after the full period", async () => {
+    await staking.initialize();
+    await LP.approve(staking.address, accountBalance, {from: user1});
+
+    await staking.stake(accountBalance, {from: user1});
+    await time.increaseTo(stakingEnd);
+    await staking.unstake(accountBalance, {from: user1});
+
+    assert.equal(await dom.balanceOf(staking.address), new BN(0));
+    assert.equal(await dom.balanceOf(user1), new BN(1000));
   });
 
   it("should apply a penalty during the penalty period", async () => {

@@ -83,6 +83,7 @@ contract Staking is IERC900, Modifiers, IERC777Recipient {
         // days from now until LSP expires
         // should be greater than REWARD_PERIOD(in days), take care of it manually
         LSP_PERIOD = (LSP_EXPIRATION - STAKING_START_TIMESTAMP) / 86400 ;
+        require(LSP_PERIOD > 7, "LSP period too short");
     }
 
     function stake(uint256 _amount) external override duringStaking checkPeriod nonReentrant {
@@ -210,16 +211,21 @@ contract Staking is IERC900, Modifiers, IERC777Recipient {
     }
 
     function _rebalance(address _user) internal {
-        // share of user out of total staked
-        uint256 s = balances[_user].staked / _totalStaked;
-
         // to keep track of rewards and penalty
         (uint256 reward, uint256 penalty) = _getRewardsAndPenalties();
 
         // balance before re-balancing
         uint256 oldBal = balances[_user].reward;
-        // update dom rewards for the user
-        balances[_user].reward = TOTAL_DOM * s * reward * (1 - penalty);
+
+        if (_totalStaked == 0 ) {
+            balances[_user].reward = 0;
+        } else {
+            // share of user out of total staked
+            uint256 s = balances[_user].staked / _totalStaked;
+
+            // update dom rewards for the user
+            balances[_user].reward = TOTAL_DOM * s * reward * (1 - penalty);
+        }
 
         // update total claimable rewards using difference
         if(balances[_user].reward > oldBal){
@@ -239,7 +245,7 @@ contract Staking is IERC900, Modifiers, IERC777Recipient {
         else if(x >= 7 && x < REWARD_PERIOD)
         { // after first 7 days until active period (120 days)
             _reward  = ( (x-7)**2 )  /  ( (LSP_PERIOD-7)**2 ) ;
-            _penalty = 1 - (  (x-7) / (REWARD_PERIOD-7)  )    ;
+            _penalty = 1 - ( (x-7) / (REWARD_PERIOD-7)  )    ;
         }
         else if(x >= REWARD_PERIOD && x < LSP_PERIOD)
         { // between active period and LSP expiry period
