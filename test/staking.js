@@ -41,18 +41,13 @@ contract('Staking', (accounts) => {
     staking = await Staking.new(
       LP.address,
       dom.address,
+      deployer,
       1000,
       stakingEnd,
     );
 
     await dom.grantRole(web3.utils.sha3("TRANSFER"), staking.address);
     await dom.transfer(staking.address, 1000);
-  });
-
-
-  it("should not allow someone else to initialize", () => {
-    truffleAssert.reverts(
-      staking.initialize({from: accounts[1]}), 'ONLY_OWNER');
   });
 
   it("should allow users to stake during first 7 days", async () => {
@@ -72,7 +67,7 @@ contract('Staking', (accounts) => {
 
     await time.increase(time.duration.days(2));
 
-    truffleAssert.reverts(
+    await truffleAssert.reverts(
       staking.stake(new BN("100000000000000000000"), {from: accounts[3]}),
       'STAKING_ENDED_OR_NOT_STARTED');
     
@@ -150,9 +145,36 @@ contract('Staking', (accounts) => {
     assert(expectedReward.eq(finalDom.sub(initialDom)));
   });
 
-  it("should allow the owner to withdraw extra funds", async () => {
-    // TODO: add owner transfer function - deployer gives to DAO
-    // TODO: allow anyone to call withdrawLeftover, but it goes to the owner
+  it("should allow anyone to withdraw leftover DOM to the owner", async () => {
+    await staking.initialize();
+    await LP.approve(staking.address, accountBalance, {from: user1});
+    const initialUserBalance = await dom.balanceOf(user1);
+
+    // withdraw all staked funds, but leave rewards behind
+    await staking.stake(accountBalance, {from: user1});
+    const halfway = stakingEnd.sub(stakingStart).div(new BN(2)).add(stakingStart);
+    await time.increaseTo(halfway);
+    await staking.unstake(accountBalance, {from: user1});
+
+    const userRewards = (await dom.balanceOf(user1)).sub(initialUserBalance);
+    const stakingBalance = await dom.balanceOf(staking.address);
+    const oldOwnerBalance = await dom.balanceOf(deployer);
+    assert(userRewards.gt(0), "user receives DOM");
+    assert(stakingBalance.gt(0), "staking still has DOM left");
+    console.log(`stakingBalance: ${stakingBalance} userRewards: ${userRewards}`);
+    assert(stakingBalance.add(userRewards).eq(new BN(1000)));
+
+    await truffleAssert.reverts(staking.withdrawLeftover());
+
+    await time.increaseTo(stakingEnd);
+    await staking.withdrawLeftover();
+
+    const newStakingBalance = await dom.balanceOf(staking.address);
+    assert(newStakingBalance.eq(new BN(0)), "all DOM removed from staking");
+
+    const newOwnerBalance = await dom.balanceOf(deployer);
+    assert(newOwnerBalance.sub(oldOwnerBalance).add(userRewards).eq(new BN(1000)),
+      "all leftovers withdrawn to owner");
   });
 
   it("should apply penalty function during the penalty period", async () => {
