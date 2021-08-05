@@ -7,6 +7,11 @@ const DummyLPToken = artifacts.require("DummyLPToken");
 
 const assert = require("chai").assert;
 
+function dateString(epoch) {
+  if (!epoch) { return 0; }
+  return new Date(epoch * 1000).toISOString();
+}
+
 contract('Staking', (accounts) => {
   let dom;
   let LP;
@@ -28,7 +33,9 @@ contract('Staking', (accounts) => {
     await LP.transfer(accounts[3], accountBalance);
 
     await time.advanceBlock();
-    stakingStart = (await time.latest()).add(new BN(20)); // slop for slow tests
+    const now = await time.latest();
+
+    stakingStart = now.add(new BN(20)); // slop for slow tests
     stakingEnd = stakingStart.add(time.duration.days(200));
 
     staking = await Staking.new(
@@ -80,14 +87,11 @@ contract('Staking', (accounts) => {
     const toWithdraw = accountBalance.div(new BN(withdraws));
 
     for (let day = 0; day < 30 * withdraws; day += 30) {
-      const oldBalance = await LP.balanceOf(deployer);
-      const stakingBalance = await LP.balanceOf(staking.address);
-      const stakingDom = await dom.balanceOf(staking.address);
-      console.log(`day ${day}: balance ${oldBalance} stakingBalance ${stakingBalance} stakingDom ${stakingDom} toWithdraw ${toWithdraw}`);
-
       await time.increaseTo(time.duration.days(day).add(stakingStart));
+      const oldBalance = await LP.balanceOf(deployer);
+
       await staking.unstake(toWithdraw);
-      
+
       assert(oldBalance.add(toWithdraw).eq(await LP.balanceOf(deployer)));
     }
 
@@ -107,6 +111,7 @@ contract('Staking', (accounts) => {
   });
 
   it("should distribute all DOM after the full period", async () => {
+    const initialUserBalance = await dom.balanceOf(user1);
     await staking.initialize();
     await LP.approve(staking.address, accountBalance, {from: user1});
 
@@ -118,7 +123,7 @@ contract('Staking', (accounts) => {
     const userBalance = await dom.balanceOf(user1);
 
     assert(stakingBalance.eq(new BN(0)));
-    assert(userBalance.eq(new BN(1000)));
+    assert(userBalance.sub(initialUserBalance).eq(new BN(1000)));
   });
 
   it("should apply a penalty during the penalty period", async () => {
@@ -130,16 +135,19 @@ contract('Staking', (accounts) => {
 
     const days = 60;
     const LSPduration = stakingEnd.sub(stakingStart).div(time.duration.days(1));
+    const reward = ((days-7)**2) / ((LSPduration-7)**2);
+    const penalty = 1 - (days-7)/(120-7);
+
+    const initialDom = await dom.balanceOf(user1);
+    const expectedReward = new BN(1000*reward*(1-penalty));
 
     await staking.stake(accountBalance, {from: user1});
     await time.increaseTo(stakingStart.add(time.duration.days(days)));
     await staking.unstake(accountBalance, {from: user1});
 
-    const reward = ((days-7)**2) / ((LSPduration-7)**2);
-    const penalty = 1 - (days-7)/(120-7);
-    const totalRewards = 1000*reward*(1-penalty);
+    const finalDom = await dom.balanceOf(user1);
 
-    assert.equal(await dom.balanceOf(user1), new BN(totalRewards));
+    assert(expectedReward.eq(finalDom.sub(initialDom)));
   });
 
   it("should allow the owner to withdraw extra funds", async () => {
