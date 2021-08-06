@@ -12,6 +12,11 @@ module.exports = {
     ecmaVersion: 12
   },
   rules: {
+    "no-unused-vars": ["error", {
+      "vars": "all",
+      "varsIgnorePattern": "_+",
+      "args": "after-used",
+      "ignoreRestSiblings": false }],
     indent: ["error", 2, {
       "SwitchCase": 1,
       "flatTernaryExpressions": true,
