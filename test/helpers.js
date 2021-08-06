@@ -1,5 +1,13 @@
 const { time, BN } = require('@openzeppelin/test-helpers');
 
+function numToWeiBN(a) {
+  return new BN(web3.utils.toWei(a.toFixed(18)));
+}
+
+function readable(wei) {
+  return Number(web3.utils.fromWei(wei)).toFixed(4);
+}
+
 function rewardsModel(stakingStart, lspExpiration, stakingDOM, totalStaked) {
   const stakingEnds = stakingStart.add(time.duration.days(7));
   const penaltyEnds = stakingEnds.add(time.duration.days(120));
@@ -30,10 +38,6 @@ function rewardsModel(stakingStart, lspExpiration, stakingDOM, totalStaked) {
     }
     return 0;
   }
-
-  function numToWeiBN(a) {
-    return new BN(web3.utils.toWei(a.toFixed(18)));
-  }
   
   function totalReward(withdrawAmount, timestamp) {
     return stakingDOM
@@ -57,3 +61,5 @@ function dateString(epoch) {
 
 exports.rewardsModel = rewardsModel;
 exports.dateString = dateString;
+exports.numToWeiBN = numToWeiBN;
+exports.readable = readable;
