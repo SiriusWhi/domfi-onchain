@@ -6,11 +6,7 @@ const Dom = artifacts.require("DominationToken");
 const DummyLPToken = artifacts.require("DummyLPToken");
 
 const assert = require("chai").assert;
-
-function dateString(epoch) {
-  if (!epoch) { return 0; }
-  return new Date(epoch * 1000).toISOString();
-}
+const helpers = require("./helpers.js");
 
 function testTransfer(oldBal, newBal, expected) {
   const difference = expected.sub(newBal.sub(oldBal));
@@ -262,54 +258,9 @@ contract('Staking', (accounts) => {
     const stakingEnds = stakingStart.add(time.duration.days(7));
     const penaltyEnds = stakingEnds.add(time.duration.days(120));
 
-    const reward = (timestamp) => {
-      // Reward function from reqs doc, in seconds
-      if (timestamp < stakingEnds) {
-        return 0;
-      }
-      else if (timestamp < lspExpiration) {
-        const offset = timestamp.sub(stakingStart);
-        const numerator = offset.sub(time.duration.days(7)).pow(new BN(2));
-        const denominator = lspExpiration.sub(stakingStart).sub(time.duration.days(7)).pow(new BN(2));
-        return numerator.toNumber() / denominator.toNumber();
-      }
-      else {
-        return 1;
-      }
-    };
-
-    const penalty = (timestamp) => {
-      if (timestamp < stakingEnds) {
-        return 1;
-      }
-      else if(timestamp < penaltyEnds) {
-        const offset = timestamp.sub(stakingStart);
-        const numerator = offset.sub(time.duration.days(7));
-        const denominator = time.duration.days(120-7);
-        return 1 - numerator / denominator;
-      }
-      else {
-        return 0;
-      }
-    };
-
-    function numToWeiBN(a) {
-      return new BN(web3.utils.toWei(a.toFixed(18)));
-    }
-
-    const totalReward = (withdrawAmount, timestamp) => {
-      return stakingDOM
-        .mul(new BN(withdrawAmount))
-        .mul(numToWeiBN(reward(timestamp)))
-        .mul(numToWeiBN(1 - penalty(timestamp)))
-        .div(totalStaked)
-        .div(numToWeiBN(1)) // jank fixed point
-        .div(numToWeiBN(1))
-      ;
-    };
+    const totalReward = helpers.rewardsModel(stakingStart, lspExpiration, stakingDOM, totalStaked);
 
     const checkUnstake = async (user, amount) => {
-
       const oldBal = await dom.balanceOf(user);
       
       await staking.unstake(amount, {from: user});
