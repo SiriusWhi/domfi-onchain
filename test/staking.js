@@ -36,8 +36,7 @@ contract('Staking', (accounts) => {
     await time.advanceBlock();
     const now = await time.latest();
 
-    stakingStart = now.add(new BN(2)); // slop for slow tests; not too much
-    lspExpiration = stakingStart.add(time.duration.days(200));
+    lspExpiration = now.add(time.duration.days(200)).add(new BN(20)); // extra for slow tests
 
     staking = await Staking.new(
       LP.address,
@@ -49,6 +48,10 @@ contract('Staking', (accounts) => {
 
     await dom.grantRole(web3.utils.sha3("TRANSFER"), staking.address);
     await dom.transfer(staking.address, stakingDOM);
+
+    await staking.initialize();
+    stakingStart = await staking.STAKING_START_TIMESTAMP();
+    time.increaseTo(stakingStart);
   });
 
   it("should allow users to stake during first 7 days", async () => {
@@ -57,7 +60,6 @@ contract('Staking', (accounts) => {
     await LP.approve(staking.address, accountBalance, {from: accounts[2]});
     await LP.approve(staking.address, accountBalance, {from: accounts[3]});
 
-    await staking.initialize();
     await staking.stake(accountBalance, {from: accounts[0]});
     await time.increase(time.duration.days(2));
     await staking.stake(accountBalance, {from: accounts[1]});
@@ -71,11 +73,9 @@ contract('Staking', (accounts) => {
     await truffleAssert.reverts(
       staking.stake(new BN("100000000000000000000"), {from: accounts[3]}),
       'STAKING_ENDED_OR_NOT_STARTED');
-    
   });
 
   it("should allow users to withdraw at any time", async () => {
-    await staking.initialize();
     await LP.approve(staking.address, accountBalance);
     await staking.stake(accountBalance);
 
@@ -94,7 +94,6 @@ contract('Staking', (accounts) => {
   });
 
   it("should give no DOM rewards in the first week", async () => {
-    await staking.initialize();
     await LP.approve(staking.address, accountBalance);
     await staking.stake(accountBalance);
 
@@ -110,7 +109,6 @@ contract('Staking', (accounts) => {
 
   it("should distribute all DOM after the full period", async () => {
     const initialUserBalance = await dom.balanceOf(user1);
-    await staking.initialize();
     await LP.approve(staking.address, accountBalance, {from: user1});
 
     await staking.stake(accountBalance, {from: user1});
@@ -128,7 +126,6 @@ contract('Staking', (accounts) => {
     // from spec doc, when 7 <= x <= 120:
     // reward = (x-7)^2/(LSP_DURATION-7)^2
     // penalty = 1 - (x-7)/(120-7)
-    await staking.initialize();
     await LP.approve(staking.address, accountBalance, {from: user1});
 
     const days = 60;
@@ -155,7 +152,6 @@ contract('Staking', (accounts) => {
   });
 
   it("should allow anyone to withdraw leftover DOM to the owner", async () => {
-    await staking.initialize();
     await LP.approve(staking.address, accountBalance, {from: user1});
     const initialUserBalance = await dom.balanceOf(user1);
 
@@ -183,7 +179,6 @@ contract('Staking', (accounts) => {
   });
 
   it("should withdraw leftover DOM after partial withdraws", async () => {
-    await staking.initialize();
     await LP.approve(staking.address, accountBalance, {from: user1});
     const initialUserBalance = await dom.balanceOf(user1);
 
@@ -214,7 +209,6 @@ contract('Staking', (accounts) => {
     // from spec doc, when penalty_duration <= x <= lsp_duration:
     // reward = (x-7)^2/(LSP_DURATION-7)^2
     // penalty = 0
-    await staking.initialize();
     stakingStart = await staking.STAKING_START_TIMESTAMP();
 
     await LP.approve(staking.address, accountBalance, {from: user1});
@@ -299,14 +293,7 @@ contract('Staking', (accounts) => {
     }
 
     const totalReward = (withdrawAmount, timestamp) => {
-
-      // console.log(`reward: ${reward(timestamp)} penalty: ${penalty(timestamp)}`);
-      // console.log(`reward: ${numToWeiBN(reward(timestamp))} penalty: ${numToWeiBN(penalty(timestamp))}`);
-      // console.log(`stakingDOM: ${stakingDOM}`);
-      // console.log(`withdrawAmount: ${withdrawAmount} totalStaked: ${totalStaked}`);
-      // console.log(`constant: ${numToWeiBN(1)}`);
-
-      const rewards = stakingDOM
+      return stakingDOM
         .mul(new BN(withdrawAmount))
         .mul(numToWeiBN(reward(timestamp)))
         .mul(numToWeiBN(1 - penalty(timestamp)))
@@ -314,40 +301,10 @@ contract('Staking', (accounts) => {
         .div(numToWeiBN(1)) // jank fixed point
         .div(numToWeiBN(1))
       ;
-
-      // console.log(rewards.toString());
-      return(rewards);
     };
 
-    const checkUnstake = async (user, amount, fail=false) => {
-
+    const checkUnstake = async (user, amount) => {
       const oldBal = await dom.balanceOf(user);
-
-      const {0: internalReward, 1: internalPenalty, 2: _} = await staking.Info(user);
-
-      const unlockedBefore = await staking.unlockedRewards();
-
-      if (fail) {
-        const timestamp = await time.latest();
-        const expectedReward = totalReward(amount, timestamp);
-        const stakingBal = await dom.balanceOf(staking.address);
-        
-        console.log(`actualReward: <prefail> expected: ${expectedReward}`);
-        console.log(`oldBal: ${oldBal}`);
-        console.log(`amount: ${amount}`);
-        console.log(`totalStaked: ${totalStaked}`);
-        console.log(`stakingDOM: ${stakingDOM}`);
-        console.log(`stakingBal: ${stakingBal}`);
-        console.log(`timestamp: ${timestamp.sub(stakingStart).toNumber() / 86400}`);
-        console.log(`stakingStart: ${stakingStart}`);
-        console.log(`stakingEnds: ${stakingEnds.sub(stakingStart).toNumber() / 86400}`);
-        console.log(`penaltyEnds: ${penaltyEnds.sub(stakingStart).toNumber() / 86400}`);
-        console.log(`lspExpiration: ${lspExpiration.sub(stakingStart).toNumber() / 86400}`);
-        console.log(`reward: ${numToWeiBN(reward(timestamp)).toString()}`);
-        console.log(`internalReward: ${internalReward}`);
-        console.log(`penalty: ${numToWeiBN(penalty(timestamp)).toString()}`);
-        console.log(`internalPenalty: ${internalPenalty}\n`);
-      }
       
       await staking.unstake(amount, {from: user});
       const timestamp = await time.latest();
@@ -356,55 +313,14 @@ contract('Staking', (accounts) => {
       const actualReward = newBal.sub(oldBal);
       const expectedReward = totalReward(amount, timestamp);
 
-      // console.log(`actualReward: ${actualReward} expected: ${expectedReward}`);
-      // assert(expectedReward.gt(actualReward), "should never give out extra DOM");
+      console.log(`actualReward: ${actualReward} expected: ${expectedReward}`);
+      assert(expectedReward.gt(actualReward), "should never give out extra DOM");
       
       const difference = expectedReward.sub(actualReward).abs();
       const maxDifference = numToWeiBN(0.01);
-      // assert(difference.lt(maxDifference), "More than 0.01 DOM lost!");
-      if (difference.gt(maxDifference)) {
-        console.log(`alarming DOM discrepancy: ${web3.utils.fromWei(difference)} DOM`);
-      }
+      assert(difference.lt(maxDifference), "More than 0.01 DOM lost!");
 
-      const weiDiv = (a, b) => {
-        const num = a.mul(new BN("1000000000000000000")).div(b);
-        return web3.utils.fromWei(num);
-      };
-      
-      const fractionUnstaked = weiDiv(new BN(amount), totalStaked);
-      const fractionDomReceived = weiDiv(actualReward, stakingDOM);
-      const fractionDomUnlocked = weiDiv(
-        (await staking.unlockedRewards()).sub(unlockedBefore),
-        stakingDOM);
-      console.log(`fractionUnstaked: ${fractionUnstaked} fractionDomReceived: ${fractionDomReceived} fractionDomUnlocked: ${fractionDomUnlocked} `);
-
-      const templimit = 0.29;
-      if (difference.gt(numToWeiBN(templimit))) {
-        console.log('\n---------large---------------');
-        console.log(`actualReward: ${actualReward} expected: ${expectedReward}`);
-        console.log(`oldBal: ${oldBal}`);
-        console.log(`newBal: ${newBal}`);
-        console.log(`amount: ${amount}`);
-        console.log(`totalStaked: ${totalStaked}`);
-        console.log(`stakingDOM: ${stakingDOM}`);
-        console.log(`timestamp: ${timestamp.sub(stakingStart).toNumber() / 86400}`);
-        console.log(`stakingStart: ${stakingStart}`);
-        console.log(`stakingEnds: ${stakingEnds.sub(stakingStart).toNumber() / 86400}`);
-        console.log(`penaltyEnds: ${penaltyEnds.sub(stakingStart).toNumber() / 86400}`);
-        console.log(`lspExpiration: ${lspExpiration.sub(stakingStart).toNumber() / 86400}`);
-        console.log(`reward: ${numToWeiBN(reward(timestamp)).toString()}`);
-        console.log(`internalReward: ${internalReward}`);
-        console.log(`penalty: ${numToWeiBN(penalty(timestamp)).toString()}`);
-        console.log(`internalPenalty: ${internalPenalty}`);
-        console.log('------------------------------');
-        // assert(difference.lt(numToWeiBN(templimit)), "the big one");
-      }
     };
-
-    await staking.initialize();
-    const realStart = await staking.STAKING_START_TIMESTAMP();
-    console.log(`start: ${stakingStart} real: ${realStart}`);
-    stakingStart = realStart;
 
     const [user1, user2, user3, user4] = accounts.slice(1,5);
     await LP.transfer(user1, "250000000000000000000"); // plus 250 initial == 500
@@ -444,14 +360,15 @@ contract('Staking', (accounts) => {
     await time.increase(time.duration.days(1));
     await checkUnstake(user2, "50000000000000000000");
 
-    console.log(`staking DOM before: ${await dom.balanceOf(staking.address)}`);
     await staking.withdrawLeftover();
-    console.log(`staking DOM remaining: ${await dom.balanceOf(staking.address)}`);
 
     await time.increase(time.duration.days(7));
-    await checkUnstake(user3, "100000000000000000000", true);
+    await checkUnstake(user3, "100000000000000000000");
 
     await staking.withdrawLeftover();
+
+    assert((await LP.balanceOf(staking.address)).isZero(), "all LPs successfully exited");
+    assert((await dom.balanceOf(staking.address)).isZero(), "all DOM successfully withdrawn");
   });
 
 });
