@@ -18,7 +18,8 @@ module.exports = async function (deployer, network, accounts) {
   
   const dummyLPToken = await deployer.deploy(DummyLPToken, accounts[0]);
 
-  const lspExpiration = luxon.DateTime.now().plus({months: 6});
+  const now = (await web3.eth.getBlock('latest')).timestamp;
+  const lspExpiration = luxon.DateTime.fromSeconds(now).plus({months: 6});
   const staking = await deployer.deploy(Staking,
     dummyLPToken.address, // lpToken
     dom.address,
