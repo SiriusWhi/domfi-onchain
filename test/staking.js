@@ -21,8 +21,7 @@ function testTransfer(oldBal, newBal, expected) {
   // assert.isBelow(unitDiff, 0.01, "Don't transfer much less than expected");
 }
 
-
-contract.only('Staking', (accounts) => {
+contract('Staking', (accounts) => {
   let dom;
   let LP;
   let staking;
@@ -46,7 +45,8 @@ contract.only('Staking', (accounts) => {
     await time.advanceBlock();
     const now = await time.latest();
 
-    lspExpiration = now.add(time.duration.days(200)).add(new BN(20)); // extra for slow tests
+    stakingStart = now.add(new BN(20)); // slop for slow tests; not too much
+    lspExpiration = stakingStart.add(time.duration.days(200));
 
     staking = await Staking.new(
       LP.address,
@@ -58,10 +58,6 @@ contract.only('Staking', (accounts) => {
 
     await dom.grantRole(web3.utils.sha3("TRANSFER"), staking.address);
     await dom.transfer(staking.address, stakingDOM);
-
-    await staking.initialize();
-    stakingStart = await staking.STAKING_START_TIMESTAMP();
-    time.increaseTo(stakingStart);
   });
 
   it("should allow users to stake during first 7 days", async () => {
@@ -70,6 +66,7 @@ contract.only('Staking', (accounts) => {
     await LP.approve(staking.address, accountBalance, {from: accounts[2]});
     await LP.approve(staking.address, accountBalance, {from: accounts[3]});
 
+    await staking.initialize();
     await staking.stake(accountBalance, {from: accounts[0]});
     await time.increase(time.duration.days(2));
     await staking.stake(accountBalance, {from: accounts[1]});
@@ -86,6 +83,7 @@ contract.only('Staking', (accounts) => {
   });
 
   it("should allow users to withdraw at any time", async () => {
+    await staking.initialize();
     await LP.approve(staking.address, accountBalance);
     await staking.stake(accountBalance);
 
@@ -104,6 +102,7 @@ contract.only('Staking', (accounts) => {
   });
 
   it("should give no DOM rewards in the first week", async () => {
+    await staking.initialize();
     await LP.approve(staking.address, accountBalance);
     await staking.stake(accountBalance);
 
@@ -119,6 +118,7 @@ contract.only('Staking', (accounts) => {
 
   it("should distribute all DOM after the full period", async () => {
     const initialUserBalance = await dom.balanceOf(user1);
+    await staking.initialize();
     await LP.approve(staking.address, accountBalance, {from: user1});
 
     await staking.stake(accountBalance, {from: user1});
@@ -136,6 +136,7 @@ contract.only('Staking', (accounts) => {
     // from spec doc, when 7 <= x <= 120:
     // reward = (x-7)^2/(LSP_DURATION-7)^2
     // penalty = 1 - (x-7)/(120-7)
+    await staking.initialize();
     await LP.approve(staking.address, accountBalance, {from: user1});
 
     const days = 60;
@@ -157,6 +158,7 @@ contract.only('Staking', (accounts) => {
   });
 
   it("should allow anyone to withdraw leftover DOM to the owner", async () => {
+    await staking.initialize();
     await LP.approve(staking.address, accountBalance, {from: user1});
     const initialUserBalance = await dom.balanceOf(user1);
 
@@ -184,6 +186,7 @@ contract.only('Staking', (accounts) => {
   });
 
   it("should withdraw leftover DOM after partial withdraws", async () => {
+    await staking.initialize();
     await LP.approve(staking.address, accountBalance, {from: user1});
     const initialUserBalance = await dom.balanceOf(user1);
 
@@ -214,6 +217,7 @@ contract.only('Staking', (accounts) => {
     // from spec doc, when penalty_duration <= x <= lsp_duration:
     // reward = (x-7)^2/(LSP_DURATION-7)^2
     // penalty = 0
+    await staking.initialize();
     stakingStart = await staking.STAKING_START_TIMESTAMP();
 
     await LP.approve(staking.address, accountBalance, {from: user1});
@@ -235,7 +239,7 @@ contract.only('Staking', (accounts) => {
     testTransfer(initialDom, finalDom, expectedReward);
   });
 
-  it.only("should handle multiple users", async () => {
+  it("should handle multiple users", async () => {
     /** Four users will stake and unstake at various times.
      *
      * user1: 500 staked
@@ -305,6 +309,7 @@ contract.only('Staking', (accounts) => {
     };
 
     const checkUnstake = async (user, amount) => {
+
       const oldBal = await dom.balanceOf(user);
       
       await staking.unstake(amount, {from: user});
@@ -314,6 +319,11 @@ contract.only('Staking', (accounts) => {
       const expectedReward = totalReward(amount, timestamp);
       testTransfer(oldBal, newBal, expectedReward);
     };
+
+    await staking.initialize();
+    const realStart = await staking.STAKING_START_TIMESTAMP();
+    console.log(`start: ${stakingStart} real: ${realStart}`);
+    stakingStart = realStart;
 
     const [user1, user2, user3, user4] = accounts.slice(1,5);
     await LP.transfer(user1, "250000000000000000000"); // plus 250 initial == 500
