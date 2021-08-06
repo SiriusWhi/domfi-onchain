@@ -53,7 +53,6 @@ function rewardsModel(stakingStart, lspExpiration, stakingDOM, totalStaked) {
   return totalReward;
 }
 
-
 function dateString(epoch) {
   if (!epoch) { return 0; }
   return new Date(epoch * 1000).toISOString();

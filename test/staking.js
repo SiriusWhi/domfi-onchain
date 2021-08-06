@@ -136,20 +136,17 @@ contract('Staking', (accounts) => {
     // from spec doc, when 7 <= x <= 120:
     // reward = (x-7)^2/(LSP_DURATION-7)^2
     // penalty = 1 - (x-7)/(120-7)
+    stakingStart = await staking.STAKING_START_TIMESTAMP();
+
     await LP.approve(staking.address, accountBalance, {from: user1});
-
-    const days = 60;
-    const LSPduration = lspExpiration.sub(stakingStart).div(time.duration.days(1));
-    const reward = ((days-7)**2) / ((LSPduration-7)**2);
-    const penalty = 1 - (days-7)/(120-7);
-
     const initialDom = await dom.balanceOf(user1);
-    const expectedReward = stakingDOM
-      .mul(new BN(1000000000*reward*(1-penalty)))
-      .div(new BN(1000000000)); // jank fixed point again
+
+    const offset = stakingStart.add(time.duration.days(60));
+    const totalReward = helpers.rewardsModel(stakingStart, lspExpiration, stakingDOM, accountBalance);
+    const expectedReward = totalReward(accountBalance, offset);
 
     await staking.stake(accountBalance, {from: user1});
-    await time.increaseTo(stakingStart.add(time.duration.days(days)));
+    await time.increaseTo(offset);
     await staking.unstake(accountBalance, {from: user1});
 
     const finalDom = await dom.balanceOf(user1);
@@ -217,18 +214,14 @@ contract('Staking', (accounts) => {
     stakingStart = await staking.STAKING_START_TIMESTAMP();
 
     await LP.approve(staking.address, accountBalance, {from: user1});
-
-    const days = 140;
-    const LSPduration = lspExpiration.sub(stakingStart).toNumber() / time.duration.days(1).toNumber();
-    const reward = ((days-7)**2) / ((LSPduration-7)**2);
-
     const initialDom = await dom.balanceOf(user1);
-    const expectedReward = stakingDOM
-      .mul(new BN(web3.utils.toWei(reward.toFixed(18))))
-      .div(new BN(web3.utils.toWei("1")));
+
+    const offset = stakingStart.add(time.duration.days(140));
+    const totalReward = helpers.rewardsModel(stakingStart, lspExpiration, stakingDOM, accountBalance);
+    const expectedReward = totalReward(accountBalance, offset);
 
     await staking.stake(accountBalance, {from: user1});
-    await time.increaseTo(stakingStart.add(time.duration.days(days)));
+    await time.increaseTo(offset);
     await staking.unstake(accountBalance, {from: user1});
 
     const finalDom = await dom.balanceOf(user1);
@@ -256,9 +249,6 @@ contract('Staking', (accounts) => {
      */
 
     const totalStaked = new BN("1000000000000000000000");
-    const stakingEnds = stakingStart.add(time.duration.days(7));
-    const penaltyEnds = stakingEnds.add(time.duration.days(120));
-
     const totalReward = helpers.rewardsModel(stakingStart, lspExpiration, stakingDOM, totalStaked);
 
     const checkUnstake = async (user, amount) => {
@@ -271,6 +261,9 @@ contract('Staking', (accounts) => {
       const expectedReward = totalReward(amount, timestamp);
       testTransfer(oldBal, newBal, expectedReward);
     };
+
+    const stakingEnds = stakingStart.add(time.duration.days(7));
+    const penaltyEnds = stakingEnds.add(time.duration.days(120));
 
     const [user1, user2, user3, user4] = accounts.slice(1,5);
     await LP.transfer(user1, "250000000000000000000"); // plus 250 initial == 500

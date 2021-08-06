@@ -30,7 +30,7 @@ module.exports = async function (deployer, network, accounts) {
 
   await dom.grantRole(web3.utils.sha3("TRANSFER"), staking.address);
   await dom.transfer(staking.address, 1000);
-  await staking.initialize(); // note - may fail if dev chain is in the future
+  await staking.initialize();
 
   // await dom.authorizeOperator("0xFd3475241a5759E87c22f14B30f01622d4B5a49C");
   // await dom.grantRole(web3.utils.sha3("TRANSFER"), "0xFd3475241a5759E87c22f14B30f01622d4B5a49C");
