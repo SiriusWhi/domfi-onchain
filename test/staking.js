@@ -1,26 +1,84 @@
-const { time, BN } = require('@openzeppelin/test-helpers');
+const { time: timeHelper } = require('@openzeppelin/test-helpers');
 const truffleAssert = require('truffle-assertions');
+const Big = require('big.js');
+Big.DP = 40;
 
 const Staking = artifacts.require("Staking");
 const Dom = artifacts.require("DominationToken");
 const DummyLPToken = artifacts.require("DummyLPToken");
 
 const assert = require("chai").assert;
-const helpers = require("./helpers.js");
+const helpers = require("./util");
+const { toBig, fromTokenAmount, ROUND_DOWN, TokenAmount, Erc20Client } = helpers;
+
+[Staking, Dom, DummyLPToken].forEach(x => x.setProvider(web3.currentProvider));
+
+function sign(value) {
+  if (value.lt(0)) {
+    // Negative is already printed
+    return '';
+  }
+  else if (value.gt(0)) {
+    return '+';
+  }
+  else {
+    return '±';
+  }
+}
 
 function testTransfer(oldBal, newBal, expected) {
-  const maxError = helpers.numToWeiBN(0.01);
+  const maxError = toBig('0.01');
 
-  const difference = expected.sub(newBal.sub(oldBal));
-  if (difference.isNeg()) {
-    console.warn(`Transfered ${helpers.readable(difference.abs())} (${difference} wei) more than expected`);
-  }
-  if (difference.abs().gt(maxError)) {
-    console.warn(`Transfered ${helpers.readable(difference)} (${difference} wei) more/less than expected`);
+  const actual = newBal.sub(oldBal);
+  const difference = actual.sub(expected);
+  if (!difference.abs().round(18, ROUND_DOWN).eq(0)) {
+    console.warn(
+    // eslint-disable-next-line indent
+`warn: Transfered ${actual.toFixed(18)} DOM.
+        Expected ${expected.toFixed(18)} DOM.
+                ${sign(difference)}${difference.toFixed(18)} DOM more/less than expected.`);
   }
   // assert(!difference.isNeg(), "Don't transfer more than expected");
   // assert(difference.abs().lt(maxError), "Don't transfer more or less than expected");
 }
+
+const DOM_DECIMALS = 18;
+
+class DomTokenAmount extends TokenAmount {
+  constructor(amount) {
+    super(amount, DOM_DECIMALS);
+  }
+
+  static fromWeb3(wei) {
+    return new DomTokenAmount(fromTokenAmount(wei, DOM_DECIMALS), DOM_DECIMALS);
+  }
+}
+
+const $DOM = (amount) => new DomTokenAmount(amount);
+
+const time = {
+  ...timeHelper,
+  async increaseTo(t) {
+    if (t instanceof Big) {
+      t = t.toFixed();
+    }
+
+    await timeHelper.increaseTo(t);
+  },
+
+  async increase(t) {
+    if (t instanceof Big) {
+      t = t.toFixed();
+    }
+
+    await timeHelper.increase(t);
+  },
+
+  async latest() {
+    const result = await timeHelper.latest();
+    return toBig(result);
+  }
+};
 
 contract('Staking', (accounts) => {
   let dom;
@@ -30,34 +88,33 @@ contract('Staking', (accounts) => {
   let lspExpiration;
   const deployer = accounts[0];
   const user1 = accounts[1];
-  const accountBalance = new BN("250000000000000000000");
-  const stakingDOM = new BN("5000000000000000000000000"); // 30m / 6 * 1e18
+  const accountBalance = $DOM('250');
+  const stakingDOM = $DOM('5'); // 30m / 6 * 1e18
 
   before(async () => {
-    dom = await Dom.new([deployer]);
+    dom = await Erc20Client.fetch(await Dom.new([deployer]));
   });
 
   beforeEach(async () => {
-    LP = await DummyLPToken.new(deployer);
+    LP = await Erc20Client.fetch(await DummyLPToken.new(deployer));
     await LP.transfer(accounts[1], accountBalance);
     await LP.transfer(accounts[2], accountBalance);
     await LP.transfer(accounts[3], accountBalance);
 
     await time.advanceBlock();
     const now = await time.latest();
-
-    const target = now.add(new BN(2)); // slop for slow tests; not too much
+    const target = now.add(2); // slop for slow tests; not too much
     lspExpiration = target.add(time.duration.days(200));
 
-    staking = await Staking.new(
+    staking = new StakingClient(await Staking.new(
       LP.address,
       dom.address,
       deployer,
-      stakingDOM,
-      lspExpiration,
-    );
+      stakingDOM.toWeb3(),
+      lspExpiration.toString(),
+    ));
 
-    await dom.grantRole(web3.utils.sha3("TRANSFER"), staking.address);
+    await dom.grantRole("TRANSFER", staking.address);
     await dom.transfer(staking.address, stakingDOM);
 
     await staking.initialize();
@@ -76,12 +133,12 @@ contract('Staking', (accounts) => {
     await time.increase(time.duration.days(2));
     await staking.stake(accountBalance, {from: accounts[2]});
     await time.increase(time.duration.days(2));
-    await staking.stake(new BN("150000000000000000000"), {from: accounts[3]});
+    await staking.stake($DOM('150'), {from: accounts[3]});
 
     await time.increase(time.duration.days(2));
 
     await truffleAssert.reverts(
-      staking.stake(new BN("100000000000000000000"), {from: accounts[3]}),
+      staking.stake($DOM('100'), {from: accounts[3]}),
       'STAKING_ENDED_OR_NOT_STARTED');
   });
 
@@ -90,17 +147,16 @@ contract('Staking', (accounts) => {
     await staking.stake(accountBalance);
 
     const withdraws = 10;
-    const toWithdraw = accountBalance.div(new BN(withdraws));
+    const toWithdraw = accountBalance.with(x => x.div(withdraws));
 
     for (let day = 0; day < 30 * withdraws; day += 30) {
-      await time.increaseTo(time.duration.days(day).add(stakingStart));
+      const duration = toBig(time.duration.days(day));
+      await time.increaseTo(duration.add(stakingStart).toFixed());
       const oldBalance = await LP.balanceOf(deployer);
 
       await staking.unstake(toWithdraw);
-
       assert(oldBalance.add(toWithdraw).eq(await LP.balanceOf(deployer)));
     }
-
   });
 
   it("should give no DOM rewards in the first week", async () => {
@@ -128,7 +184,7 @@ contract('Staking', (accounts) => {
     const stakingBalance = await dom.balanceOf(staking.address);
     const userBalance = await dom.balanceOf(user1);
 
-    assert(stakingBalance.eq(new BN(0)));
+    assert(stakingBalance.eq(0));
     assert(userBalance.sub(initialUserBalance).eq(stakingDOM));
   });
 
@@ -159,7 +215,7 @@ contract('Staking', (accounts) => {
 
     // withdraw all staked funds, but leave rewards behind
     await staking.stake(accountBalance, {from: user1});
-    const halfway = lspExpiration.sub(stakingStart).div(new BN(2)).add(stakingStart);
+    const halfway = lspExpiration.sub(stakingStart).div(2).add(stakingStart);
     await time.increaseTo(halfway);
     await staking.unstake(accountBalance, {from: user1});
 
@@ -173,7 +229,7 @@ contract('Staking', (accounts) => {
     await staking.withdrawLeftover();
 
     const newStakingBalance = await dom.balanceOf(staking.address);
-    assert(newStakingBalance.eq(new BN(0)), "all DOM removed from staking");
+    assert(newStakingBalance.eq(0), "all DOM removed from staking");
 
     const newOwnerBalance = await dom.balanceOf(deployer);
     assert(newOwnerBalance.sub(oldOwnerBalance).add(userRewards).eq(stakingDOM),
@@ -192,7 +248,7 @@ contract('Staking', (accounts) => {
     const userRewards = (await dom.balanceOf(user1)).sub(initialUserBalance);
     const stakingBalance = await dom.balanceOf(staking.address);
     const oldOwnerBalance = await dom.balanceOf(deployer);
-    assert.isBelow(Number(web3.utils.fromWei(userRewards)), 0.01, "user receives no DOM");
+    assert.isTrue(userRewards.lt('0.01'), "user receives no DOM");
     assert(stakingBalance.gt(0), "staking still has DOM left");
     assert(stakingBalance.add(userRewards).eq(stakingDOM), "no DOM unaccounted for");
 
@@ -201,7 +257,7 @@ contract('Staking', (accounts) => {
     const newStakingBalance = await dom.balanceOf(staking.address);
     const newOwnerBalance = await dom.balanceOf(deployer);
 
-    assert.isBelow(Number(web3.utils.fromWei(newStakingBalance)), 0.01, "all DOM removed from staking");
+    assert.isTrue(newStakingBalance.lt('0.01'), "all DOM removed from staking");
     assert(newOwnerBalance.sub(oldOwnerBalance).add(userRewards).eq(stakingDOM),
       "all leftovers withdrawn to owner");
   });
@@ -211,7 +267,7 @@ contract('Staking', (accounts) => {
     // from spec doc, when penalty_duration <= x <= lsp_duration:
     // reward = (x-7)^2/(LSP_DURATION-7)^2
     // penalty = 0
-    stakingStart = await staking.STAKING_START_TIMESTAMP();
+    stakingStart = toBig(await staking.STAKING_START_TIMESTAMP());
 
     await LP.approve(staking.address, accountBalance, {from: user1});
     const initialDom = await dom.balanceOf(user1);
@@ -221,7 +277,7 @@ contract('Staking', (accounts) => {
     const expectedReward = totalReward(accountBalance, offset);
 
     await staking.stake(accountBalance, {from: user1});
-    await time.increaseTo(offset);
+    await time.increaseTo(offset.toString());
     await staking.unstake(accountBalance, {from: user1});
 
     const finalDom = await dom.balanceOf(user1);
@@ -248,7 +304,7 @@ contract('Staking', (accounts) => {
      *   withdrawLeftovers again after acc3 has unstaked
      */
 
-    const totalStaked = new BN("1000000000000000000000");
+    const totalStaked = $DOM('1000');
     const totalReward = helpers.rewardsModel(stakingStart, lspExpiration, stakingDOM, totalStaked);
 
     const checkUnstake = async (user, amount) => {
@@ -266,52 +322,52 @@ contract('Staking', (accounts) => {
     const penaltyEnds = stakingEnds.add(time.duration.days(120));
 
     const [user1, user2, user3, user4] = accounts.slice(1,5);
-    await LP.transfer(user1, "250000000000000000000"); // plus 250 initial == 500
-    await LP.transfer(user4,  "50000000000000000000", {from: user2});
-    await LP.transfer(user4, "150000000000000000000", {from: user3});
-    await LP.approve(staking.address, "500000000000000000000", {from: user1});
-    await LP.approve(staking.address, "200000000000000000000", {from: user2});
-    await LP.approve(staking.address, "100000000000000000000", {from: user3});
-    await LP.approve(staking.address, "200000000000000000000", {from: user4});
-    await staking.stake("500000000000000000000", {from: user1});
-    await staking.stake("200000000000000000000", {from: user2});
-    await staking.stake("100000000000000000000", {from: user3});
+    await LP.transfer(user1, $DOM("250")); // plus 250 initial == 500
+    await LP.transfer(user4, $DOM( "50"), {from: user2});
+    await LP.transfer(user4, $DOM("150"), {from: user3});
+    await LP.approve(staking.address, $DOM("500"), {from: user1});
+    await LP.approve(staking.address, $DOM("200"), {from: user2});
+    await LP.approve(staking.address, $DOM("100"), {from: user3});
+    await LP.approve(staking.address, $DOM("200"), {from: user4});
+    await staking.stake($DOM("500"), {from: user1});
+    await staking.stake($DOM("200"), {from: user2});
+    await staking.stake($DOM("100"), {from: user3});
     await time.increaseTo(stakingEnds.sub(time.duration.hours(1)));
-    await staking.stake("200000000000000000000", {from: user4});
+    await staking.stake($DOM("200"), {from: user4});
 
     await time.increaseTo(stakingEnds);
-    await checkUnstake(user4, "100000000000000000000");
+    await checkUnstake(user4, $DOM("100"));
 
-    const third = penaltyEnds.sub(stakingEnds).div(new BN(3));
+    const third = penaltyEnds.sub(stakingEnds).div(3);
     await time.increaseTo(stakingEnds.add(third));
-    await checkUnstake(user2, "50000000000000000000");
+    await checkUnstake(user2, $DOM("50"));
     await time.increaseTo(stakingEnds.add(third).add(third));
-    await checkUnstake(user2, "50000000000000000000");
+    await checkUnstake(user2, $DOM("50"));
 
-    const half = lspExpiration.sub(penaltyEnds).div(new BN(2));
+    const half = lspExpiration.sub(penaltyEnds).div(2);
     await time.increaseTo(penaltyEnds.add(half));
 
-    await checkUnstake(user2, "50000000000000000000");
+    await checkUnstake(user2, $DOM("50"));
 
     await time.increaseTo(lspExpiration.sub(time.duration.hours(1)));
-    await checkUnstake(user1, "250000000000000000000");
+    await checkUnstake(user1, $DOM("250"));
 
     await time.increaseTo(lspExpiration);
-    await checkUnstake(user1, "250000000000000000000");
-    await checkUnstake(user4, "100000000000000000000");
+    await checkUnstake(user1, $DOM("250"));
+    await checkUnstake(user4, $DOM("100"));
 
     await time.increase(time.duration.days(1));
-    await checkUnstake(user2, "50000000000000000000");
+    await checkUnstake(user2, $DOM("50"));
 
     await staking.withdrawLeftover();
 
     await time.increase(time.duration.days(7));
-    await checkUnstake(user3, "100000000000000000000");
+    await checkUnstake(user3, $DOM("100"));
 
     await staking.withdrawLeftover();
 
-    assert((await LP.balanceOf(staking.address)).isZero(), "all LPs successfully exited");
-    assert((await dom.balanceOf(staking.address)).isZero(), "all DOM successfully withdrawn");
+    assert((await LP.balanceOf(staking.address)).eq(0), "all LPs successfully exited");
+    assert((await dom.balanceOf(staking.address)).eq(0), "all DOM successfully withdrawn");
   });
 
 });

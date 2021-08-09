@@ -21,6 +21,8 @@
     "truffle-plugin-verify": "^0.5.9"
   },
   "devDependencies": {
+    "@types/big.js": "^6.1.1",
+    "big.js": "^6.1.1",
     "eslint": "^7.12.1",
     "eslint-config-standard": "^16.0.3",
     "eslint-plugin-import": "^2.22.1",

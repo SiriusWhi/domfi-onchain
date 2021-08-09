@@ -4,6 +4,8 @@ specifiers:
   '@openzeppelin/contracts': ^4.1.0
   '@openzeppelin/test-helpers': ^0.5.12
   '@truffle/hdwallet-provider': ^1.4.1
+  '@types/big.js': ^6.1.1
+  big.js: ^6.1.1
   dotenv: ^10.0.0
   eslint: ^7.12.1
   eslint-config-standard: ^16.0.3
@@ -28,6 +30,8 @@ dependencies:
   truffle-plugin-verify: 0.5.11
 
 devDependencies:
+  '@types/big.js': 6.1.1
+  big.js: 6.1.1
   eslint: 7.31.0
   eslint-config-standard: 16.0.3_36c1a7585866400c39837ed09850682b
   eslint-plugin-import: 2.23.4_eslint@7.31.0
@@ -2657,6 +2661,10 @@ packages:
     dev: false
     optional: true
 
+  /@types/big.js/6.1.1:
+    resolution: {integrity: sha512-Zns+nT0hj96ie+GDbL5NeHxhL4wNz8QMxCHqBvxgc4x0hhgQ/o92rPwqxvPBhY3ZYnH8TJGw/8oCkjhOy2Rfzw==}
+    dev: true
+
   /@types/bn.js/4.11.6:
     resolution: {integrity: sha512-pqr857jrp2kPuO9uRjZ3PwnJTjoQy+fcdxvBTvHm6dkmEL9q+hDD/2j/0ELOBPtPnS8LjCX0gI9nbl8lVkadpg==}
     dependencies:
@@ -3895,6 +3903,10 @@ packages:
   /big.js/5.2.2:
     resolution: {integrity: sha512-vyL2OymJxmarO8gxMr0mhChsO9QGwhynfuu4+MHTAW6czfq9humCB7rKpUjDd9YUiDPU4mzpyupFSvOClAwbmQ==}
     dev: false
+
+  /big.js/6.1.1:
+    resolution: {integrity: sha512-1vObw81a8ylZO5ePrtMay0n018TcftpTA5HFKDaSuiUDBo8biRBtjIobw60OpwuvrGk+FsxKamqN4cnmj/eXdg==}
+    dev: true
 
   /bignumber.js/7.2.1:
     resolution: {integrity: sha512-S4XzBk5sMB+Rcb/LNcpzXr57VRTxgAvaAEDAl1AwRx27j00hT84O6OkteE7u8UB3NuaaygCRrEpqox4uDOrbdQ==}
