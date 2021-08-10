@@ -73,7 +73,7 @@ async function testTransfer({ prevBalance, nextBalance, expected: expectedAmount
       { name: "Reward Ratio", ...get('rewardRatio') },
       { name: "Penalty Ratio", ...get('penaltyRatio') },
     ]);
-    throw e;
+    // throw e;
   }
 }
 
@@ -124,7 +124,7 @@ contract('Staking', (accounts) => {
   const deployer = accounts[0];
   const user1 = accounts[1];
   const accountBalance = $DOM('250');
-  const stakingDOM = $DOM('5'); // 30m / 6 * 1e18
+  const stakingDOM = $DOM('5000000'); // 30m / 6
 
   before(async () => {
     dom = await Erc20Client.fetch(await Dom.new([deployer]));
