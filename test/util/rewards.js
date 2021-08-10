@@ -37,7 +37,7 @@ function rewardsModel(stakingStartInput, lspExpirationInput, stakingDOMInput, to
     if(timestamp.lt(penaltyEnds)) {
       const offset = timestamp.sub(stakingStart);
       const numerator = offset.sub(stakingPeriod);
-      const denominator = time.duration.days(rewardPeriod - stakingPeriod);
+      const denominator = rewardPeriod.sub(stakingPeriod);
       return ONE.minus(numerator.div(denominator));
     }
     return ZERO;
