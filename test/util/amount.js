@@ -13,7 +13,7 @@ class TokenAmount extends Big {
   }
 
   toWeb3() {
-    return toWeiTruncated(this.amount, this.decimals).toString();
+    return toWeiTruncated(this.amount, this.decimals).toFixed();
   }
 
   with(f) {
