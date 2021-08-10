@@ -132,6 +132,14 @@ class StakingClient {
   async STAKING_START_TIMESTAMP() {
     return toBig(await this.contract.STAKING_START_TIMESTAMP());
   }
+
+  async penalty() {
+    return fromTokenAmount(await this.contract.penalty(), 18);
+  }
+
+  async reward() {
+    return fromTokenAmount(await this.contract.reward(), 18);
+  }
 }
 
 module.exports = {

@@ -7,9 +7,10 @@ function rewardsModel(stakingStartInput, lspExpirationInput, stakingDOMInput, to
   const stakingDOM = toBig(stakingDOMInput);
   const totalStaked = toBig(totalStakedInput);
 
-  const stakingWindow = time.duration.days(7);
-  const stakingEnds = stakingStart.add(stakingWindow);
-  const penaltyEnds = stakingEnds.add(time.duration.days(120));
+  const stakingPeriod = time.duration.days(7);
+  const rewardPeriod = time.duration.days(120);
+  const stakingEnds = stakingStart.add(stakingPeriod);
+  const penaltyEnds = stakingEnds.add(rewardPeriod);
 
   /**
    * @param {Big.Big} timestamp 
@@ -22,8 +23,8 @@ function rewardsModel(stakingStartInput, lspExpirationInput, stakingDOMInput, to
     }
     if (timestamp.lt(lspExpiration)) {
       const offset = timestamp.sub(stakingStart);
-      const numerator = offset.sub(stakingWindow).pow(2);
-      const denominator = lspExpiration.sub(stakingStart).sub(stakingWindow).pow(2);
+      const numerator = offset.sub(stakingPeriod).pow(2);
+      const denominator = lspExpiration.sub(stakingStart).sub(stakingPeriod).pow(2);
       return numerator.div(denominator);
     }
     return ONE;
@@ -35,8 +36,8 @@ function rewardsModel(stakingStartInput, lspExpirationInput, stakingDOMInput, to
     }
     if(timestamp.lt(penaltyEnds)) {
       const offset = timestamp.sub(stakingStart);
-      const numerator = offset.sub(stakingWindow);
-      const denominator = time.duration.days(120-7);
+      const numerator = offset.sub(stakingPeriod);
+      const denominator = time.duration.days(rewardPeriod - stakingPeriod);
       return ONE.minus(numerator.div(denominator));
     }
     return ZERO;
