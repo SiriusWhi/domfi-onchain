@@ -6,6 +6,7 @@ specifiers:
   '@truffle/hdwallet-provider': ^1.4.1
   '@types/big.js': ^6.1.1
   big.js: ^6.1.1
+  console-table-printer: ^2.10.0
   dotenv: ^10.0.0
   eslint: ^7.12.1
   eslint-config-standard: ^16.0.3
@@ -32,6 +33,7 @@ dependencies:
 devDependencies:
   '@types/big.js': 6.1.1
   big.js: 6.1.1
+  console-table-printer: 2.10.0
   eslint: 7.31.0
   eslint-config-standard: 16.0.3_36c1a7585866400c39837ed09850682b
   eslint-plugin-import: 2.23.4_eslint@7.31.0
@@ -4843,6 +4845,12 @@ packages:
     resolution: {integrity: sha1-PXz0Rk22RG6mRL9LOVB/mFEAjo4=}
     dev: false
     optional: true
+
+  /console-table-printer/2.10.0:
+    resolution: {integrity: sha512-7pTsysaJs1+R+OO4cCtJbl+Lr4piHYIhi7/V1qHbOg/uiYgq2yUINFgvXZtVHqm9qpW0+Uk190qkGcKvzdunvg==}
+    dependencies:
+      simple-wcswidth: 1.0.1
+    dev: true
 
   /constant-case/2.0.0:
     resolution: {integrity: sha1-QXV2TTidP6nI7NKRhu1gBSQ7akY=}
@@ -12261,6 +12269,10 @@ packages:
       once: 1.4.0
       simple-concat: 1.0.1
     dev: false
+
+  /simple-wcswidth/1.0.1:
+    resolution: {integrity: sha512-xMO/8eNREtaROt7tJvWJqHBDTMFN4eiQ5I4JRMuilwfnFcV5W9u7RUkueNkdw0jPqGMX36iCywelS5yilTuOxg==}
+    dev: true
 
   /slash/3.0.0:
     resolution: {integrity: sha512-g9Q1haeby36OSStwb4ntCGGGaKsaVSjQ68fBxoQcutl5fS1vuY18H3wSt3jFyFtrkx+Kz0V1G85A4MyAdDMi2Q==}

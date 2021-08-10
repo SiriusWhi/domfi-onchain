@@ -125,6 +125,10 @@ class StakingClient {
     return await this.contract.unstake(...args(amount, options));
   }
 
+  async totalStakedFor(user) {
+    return fromTokenAmount(await this.contract.totalStakedFor(user), 18);
+  }
+
   async withdrawLeftover(options) {
     return await this.contract.withdrawLeftover(...args(options));
   }
@@ -133,12 +137,12 @@ class StakingClient {
     return toBig(await this.contract.STAKING_START_TIMESTAMP());
   }
 
-  async penalty() {
-    return fromTokenAmount(await this.contract.penalty(), 18);
+  async penaltyRatio() {
+    return fromTokenAmount(await this.contract.penaltyRatio(), 18);
   }
 
-  async reward() {
-    return fromTokenAmount(await this.contract.reward(), 18);
+  async rewardRatio() {
+    return fromTokenAmount(await this.contract.rewardRatio(), 18);
   }
 }
 
