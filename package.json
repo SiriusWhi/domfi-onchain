@@ -5,7 +5,8 @@
   "main": "index.js",
   "scripts": {
     "test": "truffle test",
-    "hooks": "git config core.hooksPath .githooks"
+    "hooks": "git config core.hooksPath .githooks",
+    "ganache": "ganache-cli -p 7545 -i 5777"
   },
   "author": "",
   "license": "ISC",
@@ -20,11 +21,15 @@
     "truffle-plugin-verify": "^0.5.9"
   },
   "devDependencies": {
+    "@types/big.js": "^6.1.1",
+    "big.js": "^6.1.1",
+    "console-table-printer": "^2.10.0",
     "eslint": "^7.12.1",
     "eslint-config-standard": "^16.0.3",
     "eslint-plugin-import": "^2.22.1",
     "eslint-plugin-node": "^11.1.0",
     "eslint-plugin-promise": "^4.2.1",
+    "ganache-cli": "^6.12.2",
     "solhint": "^3.3.6"
   }
 }
