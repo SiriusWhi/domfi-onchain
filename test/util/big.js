@@ -16,6 +16,9 @@ function readable(wei) {
  * @returns {Big.Big}
  */
 function toBig(x) {
+  if (x === null || typeof x === 'undefined') {
+    throw new Error("Invalid argument. Expected truthy value.");
+  }
   return new Big(x.toString());
 }
 

@@ -1,7 +1,8 @@
 const { time: timeHelper } = require('@openzeppelin/test-helpers');
 const truffleAssert = require('truffle-assertions');
+const { printTable } = require('console-table-printer');
 const Big = require('big.js');
-Big.DP = 40;
+Big.DP = 18;
 
 const Staking = artifacts.require("Staking");
 const Dom = artifacts.require("DominationToken");
@@ -21,6 +22,10 @@ const {
 [Staking, Dom, DummyLPToken].forEach(x => x.setProvider(web3.currentProvider));
 
 function sign(value) {
+  if (!(value instanceof Big)) {
+    throw new Error('Expected value to be of type Big');
+  }
+  
   if (value.lt(0)) {
     // Negative is already printed
     return '';
@@ -33,18 +38,48 @@ function sign(value) {
   }
 }
 
-function testTransfer(oldBal, newBal, expected) {
+async function testTransfer({ prevBalance, nextBalance, expected: expectedAmount, staking, model }) {
   const maxError = toBig('0.01');
 
-  const actual = newBal.sub(oldBal);
-  const difference = actual.sub(expected);
-  if (!difference.abs().round(18, ROUND_DOWN).eq(0)) {
-    console.warn(
-    // eslint-disable-next-line indent
-`warn: Transfered ${actual.toFixed(18)} DOM.
-        Expected ${expected.toFixed(18)} DOM.
-                ${sign(difference)}${difference.toFixed(18)} DOM more/less than expected.`);
-  }
+  const timestamp = await time.latest();
+
+  const actual = {
+    rewardAmount: nextBalance.sub(prevBalance),
+    rewardRatio: await staking.rewardRatio(),
+    penaltyRatio: await staking.penaltyRatio(),
+  };
+
+  const expected = {
+    rewardAmount: expectedAmount,
+    rewardRatio: model.rewardRatio(timestamp),
+    penaltyRatio: model.penaltyRatio(timestamp),
+  };
+
+  const get = (key) => {
+    const delta = actual[key].sub(expected[key]);
+    return {
+      actual: actual[key].toFixed(18),
+      expected: expected[key].toFixed(18),
+      delta: `${sign(delta)}${delta.toFixed(18)}`,
+    };
+  };
+
+  printTable([
+    { name: "Reward Amount", ...get('rewardAmount') },
+    { name: "Reward Ratio", ...get('rewardRatio') },
+    { name: "Penalty Ratio", ...get('penaltyRatio') },
+  ]);
+
+  //   const difference = actual.rewardAmount.sub(expected.rewardAmount);
+  //   if (!difference.abs().round(18, ROUND_DOWN).eq(0)) {
+  //     console.log({ actual, expected });
+  //     console.warn(
+  //     // eslint-disable-next-line indent
+  // `warn: Transfered ${actual.toFixed(18)} DOM.
+  //         Expected ${expected.toFixed(18)} DOM.
+  //                 ${sign(difference)}${difference.toFixed(18)} DOM more/less than expected.`);
+  //   }
+
   // assert(!difference.isNeg(), "Don't transfer more than expected");
   // assert(difference.abs().lt(maxError), "Don't transfer more or less than expected");
 }
@@ -146,7 +181,7 @@ contract('Staking', (accounts) => {
 
     await truffleAssert.reverts(
       staking.stake($DOM('100'), {from: accounts[3]}),
-      'STAKING_ENDED_OR_NOT_STARTED');
+      'ERROR_STAKING_ENDED_OR_NOT_STARTED');
   });
 
   it("should allow users to withdraw at any time", async () => {
@@ -191,8 +226,8 @@ contract('Staking', (accounts) => {
     const stakingBalance = await dom.balanceOf(staking.address);
     const userBalance = await dom.balanceOf(user1);
 
-    assert(stakingBalance.eq(0));
-    assert(userBalance.sub(initialUserBalance).eq(stakingDOM));
+    assert.strictEqual(stakingBalance.toFixed(), "0");
+    assert.isTrue(userBalance.sub(initialUserBalance).eq(stakingDOM));
   });
 
   it("should apply a penalty during the penalty period", async () => {
@@ -205,15 +240,21 @@ contract('Staking', (accounts) => {
     const initialDom = await dom.balanceOf(user1);
 
     const offset = stakingStart.add(time.duration.days(60));
-    const totalReward = helpers.rewardsModel(stakingStart, lspExpiration, stakingDOM, accountBalance);
-    const expectedReward = totalReward(accountBalance, offset);
+    const model = helpers.rewardsModel(stakingStart, lspExpiration, stakingDOM, accountBalance);
+    const expectedReward = model.totalReward(accountBalance, offset);
 
     await staking.stake(accountBalance, {from: user1});
     await time.increaseTo(offset);
     await staking.unstake(accountBalance, {from: user1});
 
     const finalDom = await dom.balanceOf(user1);
-    testTransfer(initialDom, finalDom, expectedReward);
+    await testTransfer({
+      staking,
+      model,
+      prevBalance: initialDom,
+      nextBalance: finalDom,
+      expected: expectedReward,
+    });
   });
 
   it("should allow anyone to withdraw leftover DOM to the owner", async () => {
@@ -241,6 +282,40 @@ contract('Staking', (accounts) => {
     const newOwnerBalance = await dom.balanceOf(deployer);
     assert(newOwnerBalance.sub(oldOwnerBalance).add(userRewards).eq(stakingDOM),
       "all leftovers withdrawn to owner");
+  });
+
+  it("staking should change user balance", async () => {
+    await LP.approve(staking.address, accountBalance, {from: user1});
+
+    let balance = await LP.balanceOf(user1);
+    assert.strictEqual(balance.toFixed(), accountBalance.toFixed());
+
+    balance = await LP.balanceOf(staking.address);
+    assert.strictEqual(balance.toFixed(), '0');
+
+    // Stake
+    await staking.stake(accountBalance, {from: user1});
+
+    balance = await LP.balanceOf(user1);
+    assert.strictEqual(balance.toFixed(), '0');
+
+    balance = await LP.balanceOf(staking.address);
+    assert.strictEqual(balance.toFixed(), accountBalance.toFixed());
+
+    balance = await staking.totalStakedFor(user1);
+    assert.strictEqual(balance.toFixed(), accountBalance.toFixed());
+
+    // Unstake
+    await staking.unstake(accountBalance, {from: user1});
+
+    balance = await LP.balanceOf(user1);
+    assert.strictEqual(balance.toFixed(), accountBalance.toFixed());
+
+    balance = await LP.balanceOf(staking.address);
+    assert.strictEqual(balance.toFixed(), '0');
+
+    balance = await staking.totalStakedFor(user1);
+    assert.strictEqual(balance.toFixed(), '0');
   });
 
   it("should withdraw leftover DOM after partial withdraws", async () => {
@@ -280,15 +355,21 @@ contract('Staking', (accounts) => {
     const initialDom = await dom.balanceOf(user1);
 
     const offset = stakingStart.add(time.duration.days(140));
-    const totalReward = helpers.rewardsModel(stakingStart, lspExpiration, stakingDOM, accountBalance);
-    const expectedReward = totalReward(accountBalance, offset);
+    const model = helpers.rewardsModel(stakingStart, lspExpiration, stakingDOM, accountBalance);
+    const expectedReward = model.totalReward(accountBalance, offset);
 
     await staking.stake(accountBalance, {from: user1});
     await time.increaseTo(offset.toString());
     await staking.unstake(accountBalance, {from: user1});
 
     const finalDom = await dom.balanceOf(user1);
-    testTransfer(initialDom, finalDom, expectedReward);
+    await testTransfer({
+      staking,
+      model,
+      prevBalance: initialDom,
+      nextBalance: finalDom,
+      expected: expectedReward,
+    });
   });
 
   it("should handle multiple users", async () => {
@@ -312,7 +393,7 @@ contract('Staking', (accounts) => {
      */
 
     const totalStaked = $DOM('1000');
-    const totalReward = helpers.rewardsModel(stakingStart, lspExpiration, stakingDOM, totalStaked);
+    const model = helpers.rewardsModel(stakingStart, lspExpiration, stakingDOM, totalStaked);
 
     const checkUnstake = async (user, amount) => {
       const oldBal = await dom.balanceOf(user);
@@ -321,8 +402,14 @@ contract('Staking', (accounts) => {
       const timestamp = await time.latest();
 
       const newBal = await dom.balanceOf(user);
-      const expectedReward = totalReward(amount, timestamp);
-      testTransfer(oldBal, newBal, expectedReward);
+      const expectedReward = model.totalReward(amount, timestamp);
+      await testTransfer({
+        staking,
+        model,
+        prevBalance: oldBal,
+        nextBalance: newBal,
+        expected: expectedReward,
+      });
     };
 
     const stakingEnds = stakingStart.add(time.duration.days(7));

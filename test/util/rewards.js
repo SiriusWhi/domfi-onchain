@@ -1,7 +1,7 @@
 const { time } = require('@openzeppelin/test-helpers');
 const { ZERO, ONE, toBig } = require('./big');
 
-function rewardsModel(stakingStartInput, lspExpirationInput, stakingDOMInput, totalStakedInput) {
+function makeRewardsModel(stakingStartInput, lspExpirationInput, stakingDOMInput, totalStakedInput) {
   const stakingStart = toBig(stakingStartInput);
   const lspExpiration = toBig(lspExpirationInput);
   const stakingDOM = toBig(stakingDOMInput);
@@ -17,7 +17,8 @@ function rewardsModel(stakingStartInput, lspExpirationInput, stakingDOMInput, to
    * @returns {Big.Big}
    */
   function reward(timestamp) {
-    // Reward function from reqs doc, in seconds
+    timestamp = toBig(timestamp);
+    
     if (timestamp.lt(stakingEnds)) {
       return ZERO;
     }
@@ -31,13 +32,14 @@ function rewardsModel(stakingStartInput, lspExpirationInput, stakingDOMInput, to
   }
   
   function penalty(timestamp) {
+    timestamp = toBig(timestamp);
     if (timestamp.lt(stakingEnds)) {
       return ONE;
     }
     if(timestamp.lt(penaltyEnds)) {
       const offset = timestamp.sub(stakingStart);
       const numerator = offset.sub(stakingPeriod);
-      const denominator = time.duration.days(rewardPeriod - stakingPeriod);
+      const denominator = rewardPeriod.sub(stakingPeriod);
       return ONE.minus(numerator.div(denominator));
     }
     return ZERO;
@@ -68,9 +70,13 @@ function rewardsModel(stakingStartInput, lspExpirationInput, stakingDOMInput, to
     return result;
   }
 
-  return totalReward;
+  return {
+    rewardRatio: reward,
+    penaltyRatio: penalty,
+    totalReward,
+  };
 }
 
 module.exports = {
-  rewardsModel
+  rewardsModel: makeRewardsModel
 };

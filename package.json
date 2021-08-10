@@ -23,6 +23,7 @@
   "devDependencies": {
     "@types/big.js": "^6.1.1",
     "big.js": "^6.1.1",
+    "console-table-printer": "^2.10.0",
     "eslint": "^7.12.1",
     "eslint-config-standard": "^16.0.3",
     "eslint-plugin-import": "^2.22.1",
