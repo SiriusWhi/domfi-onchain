@@ -9,7 +9,14 @@ const DummyLPToken = artifacts.require("DummyLPToken");
 
 const assert = require("chai").assert;
 const helpers = require("./util");
-const { toBig, fromTokenAmount, ROUND_DOWN, TokenAmount, Erc20Client } = helpers;
+const {
+  toBig,
+  fromTokenAmount,
+  ROUND_DOWN,
+  TokenAmount,
+  Erc20Client,
+  StakingClient
+} = helpers;
 
 [Staking, Dom, DummyLPToken].forEach(x => x.setProvider(web3.currentProvider));
 
@@ -267,7 +274,7 @@ contract('Staking', (accounts) => {
     // from spec doc, when penalty_duration <= x <= lsp_duration:
     // reward = (x-7)^2/(LSP_DURATION-7)^2
     // penalty = 0
-    stakingStart = toBig(await staking.STAKING_START_TIMESTAMP());
+    stakingStart = await staking.STAKING_START_TIMESTAMP();
 
     await LP.approve(staking.address, accountBalance, {from: user1});
     const initialDom = await dom.balanceOf(user1);
