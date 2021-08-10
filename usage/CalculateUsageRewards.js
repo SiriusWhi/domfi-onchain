@@ -17,10 +17,10 @@ for LONG and SHORT
 
 */
 
-/*  # TODO: confirm lowerBound and upperBound are not wei scaled in contract
+/*
 node CalculateUsageRewards.js \
---fromBlock 26444411 \
---toBlock 26451608 \
+--fromBlock 26540493 \
+--toBlock 26691320 \
 --domPerWeek 1000 \
 --week 1 \
 --network kovan_mnemonic \
@@ -36,16 +36,31 @@ node CalculateUsageRewards.js \
 
 const cliProgress = require("cli-progress");
 require("dotenv").config();
+const log = require('loglevel');
 const Promise = require("bluebird");
+const Big = require('big.js');
 const fetch = require("node-fetch");
 const fs = require("fs");
 const path = require("path");
 const assert = require('assert');
 
 const { ethers } = require("ethers");
-const toBN = ethers.BigNumber.from;
-const toWei = ethers.utils.parseEther;
-const fromWei = ethers.utils.formatEther;
+const { logger } = require("ethers");
+
+const ZERO = new Big(0);
+const ONE = new Big(0);
+function toBN(x) {
+  return new Big(x);
+}
+const WEI = (new Big(10)).pow(18);
+function fromWei(x) {
+  const wei = new Big(x);
+  return wei.div(WEI);
+}
+function toWei(decimal) {
+  const x = new Big(decimal);
+  return x.mul(WEI);
+}
 
 const network = 'kovan';
 
@@ -105,9 +120,20 @@ abi.staking = [
 
 const argv = require("minimist")(process.argv.slice(), {
   string: ["longAddress", "longPoolAddress", "longStakingAddress",
-           "shortAddress", "shortPoolAddress", "shortStakingAddress"],
+           "shortAddress", "shortPoolAddress", "shortStakingAddress",
+           "logLevel"],
   integer: ["fromBlock", "toBlock", "week", "domPerWeek", "blocksPerSnapshot"],
 });
+
+function clamp(x, a, b) {
+  if (x.lt(a)) {
+    return a;
+  }
+  if (x.gt(b)) {
+    return b;
+  }
+  return x;
+}
 
 async function calculateUsageRewards(
   fromBlock,
@@ -158,46 +184,45 @@ async function calculateUsageRewards(
   const snapshotsToTake = Math.ceil((toBlock - fromBlock) / blocksPerSnapshot);
 
   // $UMA per snapshot is the total $UMA for a given week, divided by the number of snapshots to take.
-  const domPerSnapshot = toWei(domPerWeek.toString()).div(toBN(snapshotsToTake.toString()));
+  const domPerSnapshot = toBN(domPerWeek).div(toBN(snapshotsToTake));
   console.log(
-    `🔎 Capturing ${snapshotsToTake} snapshots and distributing ${fromWei(
-      domPerSnapshot
-    )} $DOM per snapshot.\n💸 Total $DOM to be distributed distributed: ${fromWei(
+    `🔎 Capturing ${snapshotsToTake} snapshots and distributing ${domPerSnapshot
+    } $DOM per snapshot.\n💸 Total $DOM to be distributed: ${
       domPerSnapshot.mul(snapshotsToTake)
-    )}`
+    }`
   );
   
   console.log("Finding long token holder info...");
   const longHolders = await findTokenHolders(longToken, toBlock);
-  // console.log("longHolders", longHolders);
+  log.debug("longHolders", longHolders);
 
   console.log("Finding short token holder info...");
   const shortHolders = await findTokenHolders(shortToken, toBlock);
-  // console.log("shortHolders", shortHolders);
+  log.debug("shortHolders", shortHolders);
 
   console.log("Finding long token LP info...");
   const longPoolInfo = await _fetchUniswapPoolInfo(longPoolAddress);
-  // console.log("longPoolInfo", JSON.stringify(longPoolInfo));
+  log.debug("longPoolInfo", JSON.stringify(longPoolInfo));
   const longPoolHolders = longPoolInfo.flatMap((a) => a.user.id);
-  // console.log("longPoolHolders", longPoolHolders);
+  log.info("longPoolHolders", longPoolHolders);
 
   console.log("Finding short token LP info...");
   const shortPoolInfo = await _fetchUniswapPoolInfo(shortPoolAddress);
-  // console.log("shortPoolInfo", JSON.stringify(shortPoolInfo));
+  log.debug("shortPoolInfo", JSON.stringify(shortPoolInfo));
   const shortPoolHolders = shortPoolInfo.flatMap((a) => a.user.id);
-  // console.log("shortPoolHolders", shortPoolHolders);
+  log.info("shortPoolHolders", shortPoolHolders);
 
   const balances = {};
   [longHolders, shortHolders, longPoolHolders, shortPoolHolders].flat().forEach(
     address => balances[address.toLowerCase()] = 0
   );
-  delete balances[longPoolAddress.toLowerCase()]; // these will be handled separately
+  delete balances[longPoolAddress.toLowerCase()]; // don't double-count
   delete balances[longStakingAddress?.toLowerCase()];
   delete balances[shortPoolAddress.toLowerCase()];
   delete balances[shortStakingAddress?.toLowerCase()];
 
   const shareHolders = Object.keys(balances);
-  console.log(`Shareholders: ${shareHolders}`);
+  log.info(`Shareholders: ${shareHolders}`);
 
 
   const shareHolderPayout = await _calculatePayoutsBetweenBlocks(
@@ -254,7 +279,7 @@ async function _calculatePayoutsBetweenBlocks(
   // Create a structure to store the payouts for all historic shareholders.
   let shareHolderPayout = {};
   for (const shareHolder of shareHolders) {
-    shareHolderPayout[shareHolder] = toBN("0");
+    shareHolderPayout[shareHolder] = new Big(0);
   }
 
   console.log("🏃‍♂️Iterating over block range and calculating payouts...");
@@ -288,7 +313,7 @@ async function _calculatePayoutsBetweenBlocks(
 
 async function getDominance(symbol, timestamp) {
   const r = await fetch(`https://api.domination.finance/api/v0/price/${symbol}?timestamp=${timestamp}&mode=near`);
-  return (await r.json())['price'];
+  return new Big((await r.json())['price']);
 }
 
 // For a given `blockNumber` (snapshot in time), return an updated `shareHolderPayout` object that has appended
@@ -307,127 +332,93 @@ async function _updatePayoutAtBlock(
   domPerSnapshot
 ) {
 
-  const timestamp = (await provider.getBlock(blockNumber)).timestamp;
+  const timestamp = new Big((await provider.getBlock(blockNumber)).timestamp);
   const symbol = (await longToken.symbol()).toLowerCase(); // e.g. 'btcdom'
   const dominance = await getDominance(symbol, timestamp);
 
-  // no decimal math, so we'll call fromWei later on
-  const longVal = toBN(Math.trunc(10000 * Math.min((dominance - lowerBound) / upperBound, 1)));
-  const shortVal = toBN("10000") - longVal;
-  // console.log(`\nDominance: ${dominance} longVal: ${longVal} shortVal: ${shortVal} @${block.timestamp}`);
-
-  // Get the total existing LONG and SHORT tokens.
-  const longSupplyAtSnapshot = await longToken.totalSupply({ blockTag: blockNumber});
-  const shortSupplyAtSnapshot = await shortToken.totalSupply({ blockTag: blockNumber});
+  const longVal = clamp(dominance, lowerBound, upperBound);
+  const shortVal = (new Big(100)).sub(longVal);
+  log.debug(`\nDominance: ${dominance} longVal: ${longVal} shortVal: ${shortVal} @${timestamp}`);
 
   // Get the total supply of Uniswap Pool tokens at the given snapshot's block number.
-  const longLPTokenSupplyAtSnapshot = await longPool.totalSupply({ blockTag: blockNumber});
-  const shortLPTokenSupplyAtSnapshot = await shortPool.totalSupply({ blockTag: blockNumber});
-  // console.log(`longLPTokenSupplyAtSnapshot: ${longLPTokenSupplyAtSnapshot} shortLPTokenSupplyAtSnapshot: ${shortLPTokenSupplyAtSnapshot}`);
+  const longLPTokenSupplyAtSnapshot = fromWei(await longPool.totalSupply({ blockTag: blockNumber}));
+  const shortLPTokenSupplyAtSnapshot = fromWei(await shortPool.totalSupply({ blockTag: blockNumber}));
+  log.debug(`longLPTokenSupplyAtSnapshot: ${longLPTokenSupplyAtSnapshot} shortLPTokenSupplyAtSnapshot: ${shortLPTokenSupplyAtSnapshot}`);
 
   // Get the total number of synthetics in the Uniswap pool at the snapshot's block number.
-  const longInPoolAtSnapshot = await longToken.balanceOf(longPool.address, {blockTag: blockNumber});
-  const shortInPoolAtSnapshot = await shortToken.balanceOf(shortPool.address, {blockTag: blockNumber});
-  // console.log(`longInPoolAtSnapshot: ${longInPoolAtSnapshot} shortInPoolAtSnapshot: ${shortInPoolAtSnapshot}`);
+  const longInPoolAtSnapshot = fromWei(await longToken.balanceOf(longPool.address, {blockTag: blockNumber}));
+  const shortInPoolAtSnapshot = fromWei(await shortToken.balanceOf(shortPool.address, {blockTag: blockNumber}));
+  log.debug(`longInPoolAtSnapshot: ${longInPoolAtSnapshot} shortInPoolAtSnapshot: ${shortInPoolAtSnapshot}`);
 
-  // Get the given holders balance at the given block. Generate an array of promises to resolve in parallel.
-  const longBalanceResults = await Promise.map(
-    Object.keys(shareHolderPayout),
-    async function (shareHolder) {  
-      const direct = await longPool.balanceOf(shareHolder, {blockTag: blockNumber});
-      const staked = await longStaking?.totalStakedFor(shareHolder, {blockTag: blockNumber}) ?? 0;
+  let holderLongBalance = await aggregate(shareHolderPayout, {},
+    async function(address) {
+      const direct = fromWei(await longPool.balanceOf(address, {blockTag: blockNumber}));
+      const rawStaked = await longStaking?.totalStakedFor(address, {blockTag: blockNumber}) ?? 0;
+      const staked = fromWei(rawStaked);
+      log.debug(`${address} long LP: ${direct} + ${staked}`);
       return direct.add(staked);
     },
-    {
-      concurrency: 50, // Keep infura happy about the number of incoming requests.
-    }
+    (LPbalance) => LPbalance.mul(longInPoolAtSnapshot).div(longLPTokenSupplyAtSnapshot)
   );
-  const shortBalanceResults = await Promise.map(
-    Object.keys(shareHolderPayout),
-    async function (shareHolder) {  
-      const direct = await shortPool.balanceOf(shareHolder, {blockTag: blockNumber});
-      const staked = await shortStaking?.totalStakedFor(shareHolder, {blockTag: blockNumber}) ?? 0;
+  let holderShortBalance = await aggregate(shareHolderPayout, {},
+    async function(address) {
+      const direct = fromWei(await shortPool.balanceOf(address, {blockTag: blockNumber}));
+      const rawStaked = await shortStaking?.totalStakedFor(address, {blockTag: blockNumber}) ?? 0;
+      const staked = fromWei(rawStaked);
+      log.debug(`${address} short LP: ${direct} + ${staked}`);
       return direct.add(staked);
     },
-    {
-      concurrency: 50, // Keep infura happy about the number of incoming requests.
-    }
+    (LPbalance) => LPbalance.mul(longInPoolAtSnapshot).div(longLPTokenSupplyAtSnapshot)
   );
 
-  // For each balance result, calculate their held LONG or SHORT tokens
-  const holderLongBalance = {};
-  const holderShortBalance = {};
-  longBalanceResults.forEach(function (uniswapResult, index) {
-    if (uniswapResult === "0") {return;}
-    
-    const shareHolderAddress = Object.keys(shareHolderPayout)[index];
-    const bal = holderLongBalance[shareHolderAddress] || toBN("0");
-    holderLongBalance[shareHolderAddress] = bal.add(uniswapResult.mul(longInPoolAtSnapshot).div(longLPTokenSupplyAtSnapshot));
-    // console.log(`long bal: ${bal} add: ${uniswapResult} new: ${holderLongBalance[shareHolderAddress]}`);
-  });
-  shortBalanceResults.forEach(function (uniswapResult, index) {
-    if (uniswapResult === "0") {return;}
-    
-    const shareHolderAddress = Object.keys(shareHolderPayout)[index];
-    const bal = holderShortBalance[shareHolderAddress] || toBN("0");
-    holderShortBalance[shareHolderAddress] = bal.add(uniswapResult.mul(shortInPoolAtSnapshot).div(shortLPTokenSupplyAtSnapshot));
-    // console.log(`short bal: ${bal} add: ${uniswapResult} new: ${holderShortBalance[shareHolderAddress]}`);
-  });
+  logger.debug('first holderLongBalance');
+  printBigDict(holderLongBalance);
+  logger.debug('first holderShortBalance');
+  printBigDict(holderShortBalance);
 
-  // now add the held LONG and SHORT tokens
+  holderLongBalance = await aggregate(
+    shareHolderPayout,
+    holderLongBalance,
+    (address) => longToken.balanceOf(address, {blockTag: blockNumber}),
+    fromWei
+  );
+  holderShortBalance = await aggregate(
+    shareHolderPayout,
+    holderShortBalance,
+    (address) => shortToken.balanceOf(address, {blockTag: blockNumber}),
+    fromWei
+  );
 
-  const longResults = await Promise.map(
-    Object.keys(shareHolderPayout),
-    (shareHolder) => longToken.balanceOf(shareHolder, {blockTag: blockNumber}),
-    { concurrency: 50}
-  );
-  const shortResults = await Promise.map(
-    Object.keys(shareHolderPayout),
-    (shareHolder) => longToken.balanceOf(shareHolder, {blockTag: blockNumber}),
-    { concurrency: 50}
-  );
-  longResults.forEach(function (longBalance, index) {
-    const shareHolderAddress = Object.keys(shareHolderPayout)[index];
-    const bal = holderLongBalance[shareHolderAddress] || toBN("0");
-    holderLongBalance[shareHolderAddress] = bal.add(longBalance);
-    // console.log(`long bal: ${bal} add: ${longBalance} new: ${holderLongBalance[shareHolderAddress]}`);
-  });
-  shortResults.forEach(function (shortBalance, index) {
-    const shareHolderAddress = Object.keys(shareHolderPayout)[index];
-    const bal = holderShortBalance[shareHolderAddress] || toBN("0");
-    holderShortBalance[shareHolderAddress] = bal.add(shortBalance);
-    // console.log(`short bal: ${bal} add: ${shortBalance} new: ${holderShortBalance[shareHolderAddress]}`);
-  });
+  logger.debug("\n======HOLDER LONG BALANCE=============");
+  printBigDict(holderLongBalance);
+  logger.debug("\n======HOLDER SHORT BALANCE=============");
+  printBigDict(holderShortBalance);
 
   // At this point we know each sponsor's effective balance and the overall balance at the current
-  // snapshot. Now allocate snapshot rewards proportionally to fraction of overall balance.
-  Object.keys(holderLongBalance).forEach((shareHolderAddress) => {
-    const shareHolderFractionAtSnapshot = toWei("1")
-      .mul(holderLongBalance[shareHolderAddress])
-      .div(longSupplyAtSnapshot);
+  // snapshot. Now calculate the dollar value of their holdings.
+  const shareHolderValue = {};
+  let totalValue = ZERO;
 
-    // The payout at the snapshot for the holder is their pro-rata fraction of per-snapshot rewards.
-    const shareHolderPayoutAtSnapshot = shareHolderFractionAtSnapshot
-      .mul(toBN(domPerSnapshot))
-      .mul(longVal)
-      .div(toBN("10000"))
-      .div(toBN(toWei("1")));
-
-    shareHolderPayout[shareHolderAddress] = shareHolderPayout[shareHolderAddress].add(shareHolderPayoutAtSnapshot);
+  Object.keys(holderLongBalance).forEach((address) => {
+    const value = holderLongBalance[address].mul(longVal);
+    shareHolderValue[address] = value;
+    totalValue = totalValue.add(value);
+    logger.debug(`${address} long value: ${value}`);
   });
-  Object.keys(holderShortBalance).forEach((shareHolderAddress) => {
-    const shareHolderFractionAtSnapshot = toWei("1")
-      .mul(holderShortBalance[shareHolderAddress])
-      .div(shortSupplyAtSnapshot);
-    
-    // The payout at the snapshot for the holder is their pro-rata fraction of per-snapshot rewards.
-    const shareHolderPayoutAtSnapshot = shareHolderFractionAtSnapshot
-      .mul(toBN(domPerSnapshot))
-      .mul(shortVal)
-      .div(toWei("1"))
-      .div(toBN("10000"));
+  Object.keys(holderShortBalance).forEach((address) => {
+    const value = holderShortBalance[address].mul(shortVal);
+    shareHolderValue[address] = value.add(shareHolderValue[address] || ZERO);
+    totalValue = totalValue.add(value);
+    logger.debug(`${address} short value: ${value}`);
+  });
 
-    shareHolderPayout[shareHolderAddress] = shareHolderPayout[shareHolderAddress].add(shareHolderPayoutAtSnapshot);
+  // finally, disburse $DOM proportionally to the value of their holdings
+  Object.keys(shareHolderValue).forEach((address) => {
+    const payout = shareHolderValue[address]
+      .mul(domPerSnapshot) // prescaled
+      .div(totalValue); // prescaled
+    shareHolderPayout[address] = shareHolderPayout[address].add(payout);
+    logger.debug(`added ${payout} DOM to payout (should be less than ${domPerSnapshot})`);
   });
 
   return shareHolderPayout;
@@ -447,10 +438,14 @@ function _saveShareHolderPayout(
   blocksPerSnapshot,
   domPerWeek
 ) {
-  // Clean the shareHolderPayout of all zero recipients
-  for (const shareHolder of Object.keys(shareHolderPayout)) {
-    if (shareHolderPayout[shareHolder].toString() == "0") {delete shareHolderPayout[shareHolder];}
-    else {shareHolderPayout[shareHolder] = shareHolderPayout[shareHolder].toString();}
+  // Clean the shareHolderPayout of all zero recipients and output wei scaled values
+  for (const address of Object.keys(shareHolderPayout)) {
+    if (shareHolderPayout[address].eq(ZERO)) {
+      delete shareHolderPayout[address];
+    }
+    else {
+      shareHolderPayout[address] = toWei(shareHolderPayout[address]).round().toString();
+    }
   }
 
   // Format output and save to file.
@@ -466,9 +461,11 @@ function _saveShareHolderPayout(
     domPerWeek,
     shareHolderPayout,
   };
-  const savePath = `${path.resolve(__dirname)}/${tokenName}-weekly-payouts/Week_${week}_Mining_Rewards.json`;
+  const folder = `${path.resolve(__dirname)}/${tokenName}-weekly-payouts/`;
+  fs.mkdirSync(folder, { recursive: true });
+  const savePath = folder + `Week_${week}_Mining_Rewards.json`;
   fs.writeFileSync(savePath, JSON.stringify(outputObject));
-  console.log("🗄  File successfully written to", savePath);
+  console.log("🗄️ File successfully written to", savePath);
 }
 
 // all possible token holders - anybody who has received a Transfer at some point
@@ -504,13 +501,47 @@ async function _fetchUniswapPoolInfo(poolAddress) {
   if (data.liquidityPositions.length > 0) {
     return data.liquidityPositions;
   }
-  console.log(data);
+  log.debug(data);
   throw "⚠️  Uniswap pool provided is not indexed in the subgraph or bad address!";
+}
+
+function printBigDict(dict) {
+  if (log.getLevel() > log.levels.DEBUG) { return; }
+  const printme = [];
+  for (const [key, value] of Object.entries(dict)) {
+    printme.push({'address': key,
+      'val (wei scaled)': toWei(value).toString(),
+      'val': value.toString()});
+  }
+  console.table(printme);  
+}
+
+/**
+ * Make a bunch of requests in parallel, transform results, and add to provided dict.
+ * @param {{address: Big}} shareHolderPayout - just needed for keys
+ * @param {{address: Big}} storage - usually {}
+ * @param {async function (address) => result} request 
+ * @param {function (result) => Big} valueToAdd 
+ */
+async function aggregate(shareHolderPayout, storage, request, valueToAdd) {
+  const results = await Promise.map(
+    Object.keys(shareHolderPayout),
+    request,
+    { concurrency: 50} // 50
+  );
+  results.forEach(function (result, index) {
+    const toAdd = valueToAdd(result);
+    const address = Object.keys(shareHolderPayout)[index];
+    const bal = storage[address] || ZERO;
+    storage[address] = bal.add(toAdd);
+  });
+  return storage;
 }
 
 // Implement async callback to enable the script to be run by truffle or node.
 async function Main(callback) {
   try {
+    log.setLevel(argv.logLevel || "warn");
     // Pull the parameters from process arguments. Specifying them like this lets tests add its own.
     await calculateUsageRewards(
       argv.fromBlock,
