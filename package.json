@@ -6,7 +6,8 @@
   "scripts": {
     "test": "truffle test",
     "hooks": "git config core.hooksPath .githooks",
-    "ganache": "ganache-cli -p 7545 -i 5777"
+    "ganache": "ganache-cli -p 7545 -i 5777",
+    "coverage": "truffle run coverage --network development"
   },
   "author": "",
   "license": "ISC",
@@ -30,6 +31,8 @@
     "eslint-plugin-node": "^11.1.0",
     "eslint-plugin-promise": "^4.2.1",
     "ganache-cli": "^6.12.2",
-    "solhint": "^3.3.6"
+    "ganache-core": "^2.13.2",
+    "solhint": "^3.3.6",
+    "solidity-coverage": "^0.7.16"
   }
 }
