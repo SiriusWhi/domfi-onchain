@@ -39,8 +39,6 @@ function sign(value) {
 }
 
 async function testTransfer({ prevBalance, nextBalance, expected: expectedAmount, staking, model }) {
-  const maxError = toBig('0.01');
-
   const timestamp = await time.latest();
 
   const actual = {
@@ -64,24 +62,19 @@ async function testTransfer({ prevBalance, nextBalance, expected: expectedAmount
     };
   };
 
-  printTable([
-    { name: "Reward Amount", ...get('rewardAmount') },
-    { name: "Reward Ratio", ...get('rewardRatio') },
-    { name: "Penalty Ratio", ...get('penaltyRatio') },
-  ]);
-
-  //   const difference = actual.rewardAmount.sub(expected.rewardAmount);
-  //   if (!difference.abs().round(18, ROUND_DOWN).eq(0)) {
-  //     console.log({ actual, expected });
-  //     console.warn(
-  //     // eslint-disable-next-line indent
-  // `warn: Transfered ${actual.toFixed(18)} DOM.
-  //         Expected ${expected.toFixed(18)} DOM.
-  //                 ${sign(difference)}${difference.toFixed(18)} DOM more/less than expected.`);
-  //   }
-
-  // assert(!difference.isNeg(), "Don't transfer more than expected");
-  // assert(difference.abs().lt(maxError), "Don't transfer more or less than expected");
+  const difference = actual.rewardAmount.sub(expected.rewardAmount);
+  try {
+    assert(difference.abs().lte(DomTokenAmount.fromWeb3(1)),
+      "Don't transfer more or less than expected");
+  }
+  catch (e) {
+    printTable([
+      { name: "Reward Amount", ...get('rewardAmount') },
+      { name: "Reward Ratio", ...get('rewardRatio') },
+      { name: "Penalty Ratio", ...get('penaltyRatio') },
+    ]);
+    // throw e;
+  }
 }
 
 const DOM_DECIMALS = 18;
@@ -131,7 +124,7 @@ contract('Staking', (accounts) => {
   const deployer = accounts[0];
   const user1 = accounts[1];
   const accountBalance = $DOM('250');
-  const stakingDOM = $DOM('5'); // 30m / 6 * 1e18
+  const stakingDOM = $DOM('5000000'); // 30m / 6
 
   before(async () => {
     dom = await Erc20Client.fetch(await Dom.new([deployer]));
@@ -160,7 +153,7 @@ contract('Staking', (accounts) => {
     await dom.transfer(staking.address, stakingDOM);
 
     await staking.initialize();
-    stakingStart = target; // magical Eth faries prevent us from using staking.STAKING_START_TIMESTAMP()
+    stakingStart = await staking.STAKING_START_TIMESTAMP();
   });
 
   it("should allow users to stake during first 7 days", async () => {
@@ -234,8 +227,6 @@ contract('Staking', (accounts) => {
     // from spec doc, when 7 <= x <= 120:
     // reward = (x-7)^2/(LSP_DURATION-7)^2
     // penalty = 1 - (x-7)/(120-7)
-    stakingStart = await staking.STAKING_START_TIMESTAMP();
-
     await LP.approve(staking.address, accountBalance, {from: user1});
     const initialDom = await dom.balanceOf(user1);
 
@@ -349,8 +340,6 @@ contract('Staking', (accounts) => {
     // from spec doc, when penalty_duration <= x <= lsp_duration:
     // reward = (x-7)^2/(LSP_DURATION-7)^2
     // penalty = 0
-    stakingStart = await staking.STAKING_START_TIMESTAMP();
-
     await LP.approve(staking.address, accountBalance, {from: user1});
     const initialDom = await dom.balanceOf(user1);
 
