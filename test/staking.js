@@ -247,15 +247,19 @@ contract('Staking', (accounts) => {
 
     const {0: rewardRatioAtTime, 1: penaltyRatioAtTime, 2: rewardsAtTime} = await staking.rewardsAt(halfway.toFixed(), user1);
     await time.increaseTo(halfway.toFixed());
+    const {0: overallRewardRatioAtTime, 1: overallPenaltyRatioAtTime} = await staking.ratios();
     const {0: rewardRatio, 1: penaltyRatio, 2: staked, 3: rewards} = await staking.account(user1);
+
+    await staking.unstake(accountBalance, {from: user1});
+    const finalDOM = await dom.balanceOf(user1);
+
+    assert.strictEqual(rewardRatioAtTime.toFixed(), overallRewardRatioAtTime.toFixed());
+    assert.strictEqual(penaltyRatioAtTime.toFixed(), overallPenaltyRatioAtTime.toFixed());
 
     assert.strictEqual(rewardRatio.toFixed(), rewardRatioAtTime.toFixed());
     assert.strictEqual(penaltyRatio.toFixed(), penaltyRatioAtTime.toFixed());
     assert.strictEqual(rewards.toFixed(), rewardsAtTime.toFixed());
     assert.strictEqual(staked.toFixed(), accountBalance.toFixed());
-
-    await staking.unstake(accountBalance, {from: user1});
-    const finalDOM = await dom.balanceOf(user1);
 
     assert.strictEqual(finalDOM.sub(initialDOM).toFixed(), rewards.toFixed(),
       "Reported rewards should be accurate");

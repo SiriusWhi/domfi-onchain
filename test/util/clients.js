@@ -168,6 +168,14 @@ class StakingClient {
     };
   }
 
+  async ratios() {
+    const raw = await this.contract.ratios();
+    return {
+      0: fromTokenAmount(raw[0], 18),
+      1: fromTokenAmount(raw[1], 18)
+    };
+  }
+
   async STAKING_START_TIMESTAMP() {
     return toBig(await this.contract.STAKING_START_TIMESTAMP());
   }
