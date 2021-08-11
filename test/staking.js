@@ -247,11 +247,17 @@ contract('Staking', (accounts) => {
 
     const {0: rewardRatioAtTime, 1: penaltyRatioAtTime, 2: rewardsAtTime} = await staking.rewardsAt(halfway.toFixed(), user1);
     await time.increaseTo(halfway.toFixed());
-    const {0: overallRewardRatioAtTime, 1: overallPenaltyRatioAtTime} = await staking.ratios();
-    const {0: rewardRatio, 1: penaltyRatio, 2: staked, 3: rewards} = await staking.account(user1);
 
+    // all three of these requests check block.timestamp, so we need to be fast to test equality
+    const [ratios, account ] = await Promise.all([
+      staking.ratios(),
+      staking.account(user1)
+    ]);
     await staking.unstake(accountBalance, {from: user1});
+
     const finalDOM = await dom.balanceOf(user1);
+    const {0: overallRewardRatioAtTime, 1: overallPenaltyRatioAtTime} = ratios;
+    const {0: rewardRatio, 1: penaltyRatio, 2: staked, 3: rewards} = account;
 
     assert.strictEqual(rewardRatioAtTime.toFixed(), overallRewardRatioAtTime.toFixed());
     assert.strictEqual(penaltyRatioAtTime.toFixed(), overallPenaltyRatioAtTime.toFixed());
