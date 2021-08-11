@@ -55,17 +55,17 @@ function makeRewardsModel(stakingStartInput, lspExpirationInput, stakingDOMInput
       .mul(ONE.minus(penalty(timestamp)))
       .div(totalStaked);
 
-    console.log(
-      'totalReward',
-      {
-        stakingDOM: stakingDOM.toFixed(),
-        timestamp: timestamp.toFixed(),
-        reward: reward(timestamp).toFixed(),
-        penalty: penalty(timestamp).toFixed(),
-        totalStaked: totalStaked.toFixed(),
-        totalReward: result.toFixed(),
-      }
-    );
+    // console.log(
+    //   'totalReward',
+    //   {
+    //     stakingDOM: stakingDOM.toFixed(),
+    //     timestamp: timestamp.toFixed(),
+    //     reward: reward(timestamp).toFixed(),
+    //     penalty: penalty(timestamp).toFixed(),
+    //     totalStaked: totalStaked.toFixed(),
+    //     totalReward: result.toFixed(),
+    //   }
+    // );
       
     return result;
   }
