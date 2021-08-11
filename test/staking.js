@@ -186,12 +186,79 @@ contract('Staking', (accounts) => {
 
     for (let day = 0; day < 30 * withdraws; day += 30) {
       const duration = toBig(time.duration.days(day));
-      await time.increaseTo(duration.add(stakingStart).toFixed());
+      await time.increase(duration.toFixed());
       const oldBalance = await LP.balanceOf(deployer);
 
       await staking.unstake(toWithdraw);
       assert(oldBalance.add(toWithdraw).eq(await LP.balanceOf(deployer)));
     }
+  });
+
+  it("should allow a user to stake on behalf of another", async () => {
+    await LP.approve(staking.address, accountBalance);
+    await staking.stakeFor(user1, accountBalance);
+
+    const initialDOM = await dom.balanceOf(user1);
+    const initialLP = await LP.balanceOf(user1);
+
+    await time.increase(lspExpiration.toFixed());
+    await staking.unstake(accountBalance, {from: user1});
+
+    const finalDOM = await dom.balanceOf(user1);
+    const finalLP = await LP.balanceOf(user1);
+
+    assert.strictEqual(finalDOM.sub(initialDOM).toFixed(), stakingDOM.toFixed());
+    assert.strictEqual(finalLP.sub(initialLP).toFixed(), accountBalance.toFixed());
+  });
+
+  it("should report overall info for website", async () => {
+    assert.equal(await staking.stakingToken(), LP.address);
+    assert.equal(await staking.rewardToken(), dom.address);
+    assert.isFalse(await staking.supportsHistory(), "Contract doesn't support ERC900 history");
+
+    assert.strictEqual((await staking.totalStaked()).toFixed(), "0");
+
+    const [user1, user2, user3] = accounts.slice(1,4);
+    await LP.approve(staking.address, accountBalance, {from: user1});
+    await LP.approve(staking.address, accountBalance, {from: user2});
+    await LP.approve(staking.address, accountBalance, {from: user3});
+    await staking.stake(accountBalance, {from: user1});
+    await staking.stake(accountBalance, {from: user2});
+    await staking.stake(accountBalance, {from: user3});
+
+    assert.strictEqual(
+      (await staking.totalStaked()).toFixed(),
+      accountBalance.mul(3).toFixed());
+
+    assert.isTrue(await staking.isStakingAllowed());
+    await time.increaseTo(stakingStart.add(time.duration.days(7)));
+    assert.isFalse(await staking.isStakingAllowed());
+  });
+
+  it("should report detailed rewards info", async () => {
+    const [user1, user2] = accounts.slice(1,3);
+    await LP.approve(staking.address, accountBalance, {from: user1});
+    await LP.approve(staking.address, accountBalance, {from: user2});
+    await staking.stake(accountBalance, {from: user1});
+    await staking.stake(accountBalance, {from: user2});
+
+    const halfway = stakingStart.add(time.duration.days(7)).add(lspExpiration).div(2).round();
+    const initialDOM = await dom.balanceOf(user1);
+
+    const {0: rewardRatioAtTime, 1: penaltyRatioAtTime, 2: rewardsAtTime} = await staking.rewardsAt(halfway.toFixed(), user1);
+    await time.increaseTo(halfway.toFixed());
+    const {0: rewardRatio, 1: penaltyRatio, 2: staked, 3: rewards} = await staking.account(user1);
+
+    assert.strictEqual(rewardRatio.toFixed(), rewardRatioAtTime.toFixed());
+    assert.strictEqual(penaltyRatio.toFixed(), penaltyRatioAtTime.toFixed());
+    assert.strictEqual(rewards.toFixed(), rewardsAtTime.toFixed());
+    assert.strictEqual(staked.toFixed(), accountBalance.toFixed());
+
+    await staking.unstake(accountBalance, {from: user1});
+    const finalDOM = await dom.balanceOf(user1);
+
+    assert.strictEqual(finalDOM.sub(initialDOM).toFixed(), rewards.toFixed(),
+      "Reported rewards should be accurate");
   });
 
   it("should give no DOM rewards in the first week", async () => {
@@ -217,6 +284,7 @@ contract('Staking', (accounts) => {
     await staking.unstake(accountBalance, {from: user1});
 
     const stakingBalance = await dom.balanceOf(staking.address);
+    assert.strictEqual((await staking.remainingDOM()).toFixed(), stakingBalance.toFixed());
     const userBalance = await dom.balanceOf(user1);
 
     assert.strictEqual(stakingBalance.toFixed(), "0");

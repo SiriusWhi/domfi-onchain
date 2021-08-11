@@ -113,6 +113,14 @@ class StakingClient {
     return await this.contract.stake(...args(amount, options));
   }
 
+  async stakeFor(user, amount, options) {
+    if (typeof amount.toWeb3 === 'function') {
+      amount = amount.toWeb3();
+    }
+
+    return await this.contract.stakeFor(...args(user, amount, options));
+  }
+
   async initialize() {
     return await this.contract.initialize();
   }
@@ -129,12 +137,55 @@ class StakingClient {
     return fromTokenAmount(await this.contract.totalStakedFor(user), 18);
   }
 
+  async totalStaked() {
+    return fromTokenAmount(await this.contract.totalStaked(), 18);
+  }
+
+  async remainingDOM() {
+    return fromTokenAmount(await this.contract.remainingDOM(), 18);
+  }
+
   async withdrawLeftover(options) {
     return await this.contract.withdrawLeftover(...args(options));
   }
 
+  async account(user) {
+    const raw = await this.contract.account(user);
+    return {
+      0: fromTokenAmount(raw[0], 18),
+      1: fromTokenAmount(raw[1], 18),
+      2: fromTokenAmount(raw[2], 18),
+      3: fromTokenAmount(raw[3], 18)
+    };
+  }
+
+  async rewardsAt(timestamp, user) {
+    const raw = await this.contract.rewardsAt(timestamp, user);
+    return {
+      0: fromTokenAmount(raw[0], 18),
+      1: fromTokenAmount(raw[1], 18),
+      2: fromTokenAmount(raw[2], 18)
+    };
+  }
+
   async STAKING_START_TIMESTAMP() {
     return toBig(await this.contract.STAKING_START_TIMESTAMP());
+  }
+
+  async stakingToken() {
+    return await this.contract.stakingToken();
+  }
+
+  async rewardToken() {
+    return await this.contract.rewardToken();
+  }
+
+  async supportsHistory() {
+    return await this.contract.supportsHistory();
+  }
+
+  async isStakingAllowed() {
+    return await this.contract.isStakingAllowed();
   }
 
   async penaltyRatio() {
