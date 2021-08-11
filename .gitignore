@@ -1,4 +1,9 @@
-build/
-node_modules/
 .env
 .vscode/settings.json
+build/
+node_modules/
+
+coverage/
+coverage.json
+.coverage_artifacts/
+.coverage_contracts/
