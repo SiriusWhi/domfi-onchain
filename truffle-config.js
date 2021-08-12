@@ -1,4 +1,5 @@
 const HDWalletProvider = require('@truffle/hdwallet-provider');
+const {toWei} = require('web3').utils;
 require('dotenv').config();
 
 module.exports = {
@@ -22,7 +23,7 @@ module.exports = {
         );
       },
       gas: 5000000,
-      gasPrice: 25000000000,
+      gasPrice: toWei("20", "gwei"),
       network_id: 42
     }
   },

@@ -10,6 +10,7 @@ contract DominationToken is ERC777, AccessControl
     1.5 billion tokens (to match initial valuation for convenience):
         40% (600m)   to team & investors; 100 tokens per $ invested
         60% (900m)   to DAO
+         2% ( 30m)   to initial staking program from DAO budget
 
     all above numbers * 1e18 in internal representation
      */
@@ -25,12 +26,12 @@ contract DominationToken is ERC777, AccessControl
         _setupRole(TRANSFER_ROLE, defaultOperators[0]);
         _setupRole(TRANSFER_TOGGLER, defaultOperators[0]);
         _setupRole(DEFAULT_ADMIN_ROLE, defaultOperators[0]);  // ability to manage roles
-        _mint(defaultOperators[0], 9e26, "", "");
+        _mint(defaultOperators[0], 9e26 - 3e25, "", "");
         
         // Grant deployer permissions and funds for vesting contracts.
         _setupRole(TRANSFER_ROLE, msg.sender);
         _setupRole(DEFAULT_ADMIN_ROLE, msg.sender);
-        _mint(msg.sender, 6e26, "", "");
+        _mint(msg.sender, 6e26 + 3e25, "", "");
         
     }
 
