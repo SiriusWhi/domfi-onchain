@@ -37,25 +37,26 @@ module.exports = async function (deployer, network) {
   const dom = await DomToken.deployed();
   const vFactory = await VesterFactory.deployed();
 
-  const vestingBegin = luxon.DateTime.now().plus({hours: 1});
-  const vestingCliff = vestingBegin.plus({months: 6});
-  const vestingEnd = vestingBegin.plus({years: 3});
-  const timeout = luxon.Duration.fromObject({ months: 1 });
+  const vestingBeginDT = luxon.DateTime.now().plus({hours: 1});
+  const vestingBegin = vestingBeginDT.toSeconds().toFixed();
+  const vestingCliff = vestingBeginDT.plus({months: 6}).toSeconds().toFixed();
+  const vestingEnd = vestingBeginDT.plus({years: 3}).toSeconds().toFixed();
+  const timeout = luxon.Duration.fromObject({ months: 1 }).as('seconds');
 
   console.log(`Deployed with
-    vestingBegin: ${vestingBegin.toSeconds()}
-    vestingCliff: ${vestingCliff.toSeconds()}
-    vestingEnd: ${vestingEnd.toSeconds()}
-    timeout: ${timeout.as('seconds')}`);
+    vestingBegin: ${vestingBegin}
+    vestingCliff: ${vestingCliff}
+    vestingEnd: ${vestingEnd}
+    timeout: ${timeout}`);
 
   for (const allocation of allocations) {
     const start = await web3.eth.getBlockNumber();
     const data = web3.eth.abi.encodeParameters(['address','uint','uint','uint','uint'], [
       allocation.address,
-      Math.floor(vestingBegin.toSeconds()),
-      Math.floor(vestingCliff.toSeconds()),
-      Math.floor(vestingEnd.toSeconds()),
-      timeout.as('seconds')
+      vestingBegin,
+      vestingCliff,
+      vestingEnd,
+      timeout
     ]);
     
     await dom.send(vFactory.address, allocation.amount, data);

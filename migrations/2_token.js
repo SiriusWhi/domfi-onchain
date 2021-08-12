@@ -2,12 +2,9 @@ require("dotenv").config();
 
 require('@openzeppelin/test-helpers/configure')({ provider: web3.currentProvider, environment: 'truffle' });
 const { singletons } = require('@openzeppelin/test-helpers');
-
+const { getDAO } = require('./util');
 const DomToken = artifacts.require("DominationToken");
 
-function getDAO(network) {
-  return process.env[`${network.toUpperCase()}_DAO_ADDRESS`];
-}
 
 
 module.exports = async function (deployer, network, accounts) {
