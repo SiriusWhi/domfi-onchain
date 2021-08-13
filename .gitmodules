@@ -1,4 +1,0 @@
-[submodule "contracts/domfi-staking"]
-	path = contracts/domfi-staking
-	url = git@github.com:ferrosync/domfi-staking.git
-	branch = gabe-testing
