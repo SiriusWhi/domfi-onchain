@@ -1,5 +1,6 @@
 const BigNumber = require('bignumber.js');
 const luxon = require('luxon');
+const { storeVester } = require('./util');
 
 const DomToken = artifacts.require("DominationToken");
 const VesterFactory = artifacts.require("VesterFactory");
@@ -61,6 +62,8 @@ module.exports = async function (deployer, network) {
     
     await dom.send(vFactory.address, allocation.amount, data);
     const eventList = await vFactory.getPastEvents({ fromBlock: start}, 'VesterCreated');
-    console.log(`${eventList[0].args.childAddress} ${allocation.amount}`);
+    const address = eventList[0].args.childAddress;
+    storeVester(address, network);
+    console.log(`${address} ${allocation.amount}`);
   }
 };
