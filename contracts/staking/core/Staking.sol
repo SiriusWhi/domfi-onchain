@@ -5,11 +5,11 @@ import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {ReentrancyGuard} from "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
+import {FixedPoint} from "@uma/core/contracts/common/implementation/FixedPoint.sol";
 
 import {IERC900} from "../interfaces/IERC900.sol";
 import {Modifiers} from "../utils/Modifiers.sol";
 
-import "../utils/FixedPoint.sol";
 
 contract Staking is IERC900, Modifiers, Ownable, ReentrancyGuard {
     using FixedPoint for FixedPoint.Unsigned;
