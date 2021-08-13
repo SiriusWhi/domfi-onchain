@@ -36,13 +36,13 @@ module.exports = {
   // Configure your compilers
   compilers: {
     solc: {
-      version: "0.8.5",    // Fetch exact version from solc-bin (default: truffle's version)
-      settings: {          // See the solidity docs for advice about optimization and evmVersion
-        optimizer: {
-          enabled: false,
-          runs: 200
-        },
-        evmVersion: "byzantium"
+      version: "0.8.5",
+      optimizer: {
+        enabled: true,
+        runs: 25000,
+        details: {
+          yul: true
+        }
       }
     }
   },
