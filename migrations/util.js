@@ -67,6 +67,12 @@ function storeStakingAddress(underlying, side, address, network) {
   storeFromNetwork(key, address, network);
 }
 
+function storeVester(address, network) {
+  const vesters = getFromNetwork('VESTERS', network) || [];
+  vesters.push(address);
+  storeFromNetwork('VESTERS', vesters, network);
+}
+
 async function getDominance(symbol) {
   const r = await fetch(`https://api.domination.finance/api/v0/price/${symbol}DOM`);
   return Number((await r.json())['price']);
@@ -93,12 +99,14 @@ function scale(x, a, b) {
 module.exports = {
   getDAO,
   getUSDCAddress,
+  storeFromNetwork,
   getLSPAddress,
   storeLSPAddress,
   getLPAddress,
   storeLPAddress,
   getStakingAddress,
   storeStakingAddress,
+  storeVester,
   getDominance,
   scale
 };
