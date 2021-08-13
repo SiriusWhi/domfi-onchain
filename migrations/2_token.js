@@ -13,5 +13,10 @@ module.exports = async function (deployer, network, accounts) {
     await singletons.ERC1820Registry(accounts[0]);
   }
   const dom = await deployer.deploy(DomToken, [getDAO(network)]);
-  storeFromNetwork("DOM_TOKEN", dom.address, network);
+  try {
+    storeFromNetwork("DOM_TOKEN", dom.address, network);
+  } catch (e) {
+    console.log(dom);
+    console.log(network);
+  }
 };
