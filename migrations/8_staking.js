@@ -4,6 +4,7 @@ const DummyLPToken = artifacts.require("DummyLPToken");
 const { getLPAddress, storeLPAddress, getStakingAddress, storeStakingAddress } = require('./util');
 
 const luxon = require('luxon');
+const { toBN, toWei } = require('web3').utils;
 
 function getDAO(network) {
   return process.env[`${network.toUpperCase()}_DAO_ADDRESS`];
@@ -16,25 +17,26 @@ module.exports = async function (deployer, network, accounts) {
 
   const dom = await DomToken.deployed();
 
-  const deployStaking = async (LPaddress) => {
+  const deployStaking = async (LPaddress, stakingDOM) => {
     const now = (await web3.eth.getBlock('latest')).timestamp;
     const lspExpiration = luxon.DateTime.fromSeconds(now).plus({months: 6});
     const staking = await Staking.new(
       LPaddress,
       dom.address,
       getDAO(network),
-      "5000000000000000000000000", // totalDOM
+      stakingDOM,
       Math.floor(lspExpiration.toSeconds())
     );
   
     await dom.grantRole(web3.utils.sha3("TRANSFER"), staking.address);
-    await dom.transfer(staking.address, "5000000000000000000000000");
+    await dom.transfer(staking.address, stakingDOM);
     await staking.initialize();
 
     return staking.address;
   };
 
-  const deployFor = async (underlyingSymbol) => {
+  const deployFor = async (underlyingSymbol, totalDOM) => {
+    const domPerHalf = toBN(totalDOM).div(toBN(2));
     if (network == 'development') {
       const dummyLP = await deployer.new(DummyLPToken, accounts[0]);
       storeLPAddress(underlyingSymbol, 'long', dummyLP.address, network);
@@ -47,7 +49,7 @@ module.exports = async function (deployer, network, accounts) {
       }
       else {
         console.log(getLPAddress(underlyingSymbol, 'long', network));
-        const address = await deployStaking(getLPAddress(underlyingSymbol, 'long', network));
+        const address = await deployStaking(getLPAddress(underlyingSymbol, 'long', network), domPerHalf);
         storeStakingAddress(underlyingSymbol, 'long', address, network);
       }
     }
@@ -58,14 +60,15 @@ module.exports = async function (deployer, network, accounts) {
         console.log(`No liquidity pool for ${underlyingSymbol}DOM short; run 9_pools to create or load`);
       }
       else {
-        const address = await deployStaking(getLPAddress(underlyingSymbol, 'short', network));
+        const address = await deployStaking(getLPAddress(underlyingSymbol, 'short', network), domPerHalf);
         storeStakingAddress(underlyingSymbol, 'short', address, network);
       }
     }
     console.log(`${underlyingSymbol} short LP staking: ${getStakingAddress(underlyingSymbol, 'short', network)}`);
   };
 
-  await deployFor('BTC');
-  await deployFor('ETH');
-  await deployFor('USDT');
+  // 1%, .6% and .4% per pool, respectively
+  await deployFor('BTC', toWei(Number(30000000 * 0.01).toString()));
+  await deployFor('ETH', toWei(Number(30000000 * 0.006).toString()));
+  await deployFor('USDT', toWei(Number(30000000* 0.004).toString()));
 };
