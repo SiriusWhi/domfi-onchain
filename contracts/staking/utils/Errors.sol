@@ -1,13 +1,14 @@
 // SPDX-License-Identifier: UNLICENSED
-pragma solidity 0.8.5;
+pragma solidity ^0.8.5;
 
 abstract contract Errors {
-    string internal constant ERROR_PAST_TIMESTAMP = "ERROR_PAST_TIMESTAMP";
-    string internal constant ERROR_NOT_ENOUGH_DOM = "ERROR_NOT_ENOUGH_DOM";
-    string internal constant ERROR_NOT_ENOUGH_ALLOWANCE = "ERROR_NOT_ENOUGH_ALLOWANCE";
-    string internal constant ERROR_NOT_ENOUGH_STAKE = "ERROR_NOT_ENOUGH_STAKE";
-    string internal constant ERROR_NOT_A_CONTRACT = "ERROR_NOT_A_CONTRACT";
-    string internal constant ERROR_STAKING_NOT_STARTED = "ERROR_STAKING_NOT_STARTED";
-    string internal constant ERROR_STAKING_ENDED_OR_NOT_STARTED = "ERROR_STAKING_ENDED_OR_NOT_STARTED";
     string internal constant ERROR_ZERO_AMOUNT = "ERROR_ZERO_AMOUNT";
+    string internal constant ERROR_PAST_TIMESTAMP = "LSP already expired";
+    string internal constant ERROR_NOT_ENOUGH_DOM = "Not enough DOM";
+    string internal constant ERROR_NOT_ENOUGH_ALLOWANCE = "Not enough allowance";
+    string internal constant ERROR_NOT_ENOUGH_STAKE = "Not enough staked";
+    string internal constant ERROR_STAKING_NOT_STARTED = "Staking not started";
+    string internal constant ERROR_ALREADY_INITIALIZED = "Already initialized";
+    string internal constant ERROR_EXPIRES_TOO_SOON = "LSP period too short";
+    string internal constant ERROR_STAKING_PROHIBITED = "Staking not allowed";
 }

@@ -174,7 +174,7 @@ contract('Staking', (accounts) => {
 
     await truffleAssert.reverts(
       staking.stake($DOM('100'), {from: accounts[3]}),
-      'ERROR_STAKING_ENDED_OR_NOT_STARTED');
+      'Staking not allowed');
   });
 
   it("should allow users to withdraw at any time", async () => {

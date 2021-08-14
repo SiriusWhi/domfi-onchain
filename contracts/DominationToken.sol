@@ -7,10 +7,10 @@ import "@openzeppelin/contracts/access/AccessControl.sol";
 contract DominationToken is ERC777, AccessControl
 {
     /**
-    1.5 billion tokens (to match initial valuation for convenience):
-        40% (600m)   to team & investors; 100 tokens per $ invested
-        60% (900m)   to DAO
-         2% ( 30m)   to initial staking program from DAO budget
+    1.5 billion tokens:
+        40% (600m) to team & investors
+        60% (900m) to DAO
+         2% ( 30m) to initial staking program from DAO budget
 
     all above numbers * 1e18 in internal representation
      */
