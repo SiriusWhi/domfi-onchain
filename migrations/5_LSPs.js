@@ -96,14 +96,17 @@ module.exports = async function (_, network, accounts) {
     await USDC.approve(lspCreator.address, UINT256_MAX);
   }
 
-  const btcDom = await createLSP('BTC', [0,100]);
-  const ethDom = await createLSP('ETH', [0,35]);
-  const usdtDom = await createLSP('USDT', [0,10]);
+
+  const addresses = await Promise.all([
+    createLSP('BTC', [0,100]),
+    createLSP('ETH', [0,35]),
+    createLSP('USDT', [0,10]),
+  ]);
 
   console.log(`All pairs created:`);
   console.log({
-    BTCDOM: btcDom,
-    ETHDOM: ethDom,
-    USDTDOM: usdtDom,
+    BTCDOM: addresses[0],
+    ETHDOM: addresses[1],
+    USDTDOM: addresses[2],
   });
 };

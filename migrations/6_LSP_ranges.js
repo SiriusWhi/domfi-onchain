@@ -36,7 +36,9 @@ module.exports = async function (_, network, accounts) {
     console.log(`Set ${name} range to [${lowerBound}, ${upperBound}]`);
   };
 
-  await setBoundsForLSP('BTCDOM', getLSPAddress('BTC', network), [0,100]);
-  await setBoundsForLSP('ETHDOM', getLSPAddress('ETH', network), [0,35]);
-  await setBoundsForLSP('USDTDOM', getLSPAddress('USDT', network), [0,10]);
+  await Promise.all([
+    setBoundsForLSP('BTCDOM', getLSPAddress('BTC', network), [0,100]),
+    setBoundsForLSP('ETHDOM', getLSPAddress('ETH', network), [0,35]),
+    setBoundsForLSP('USDTDOM', getLSPAddress('USDT', network), [0,10]),
+  ]);
 };

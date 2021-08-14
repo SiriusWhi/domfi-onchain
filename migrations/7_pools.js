@@ -153,16 +153,12 @@ module.exports = async function (_, network, accounts) {
       network);
   };
 
-  if (getLSPAddress('BTC', network)) {
-    const btcDom = await LongShortPair.at(getLSPAddress('BTC', network));
-    await initialPairLiquidity(btcDom);
-  }
-  if (getLSPAddress('ETH', network)) {
-    const ethDom = await LongShortPair.at(getLSPAddress('ETH', network));
-    await initialPairLiquidity(ethDom);
-  }
-  if (getLSPAddress('USDT', network)) {
-    const usdtDom = await LongShortPair.at(getLSPAddress('USDT', network));
-    await initialPairLiquidity(usdtDom);
-  }
+  const deployIfNeeded = async (underlying) => {
+    if (getLSPAddress(underlying, network)) {
+      const lsp = await LongShortPair.at(getLSPAddress(underlying, network));
+      await initialPairLiquidity(lsp);
+    }
+  };
+
+  await Promise.all(['BTC', 'ETH', 'USDT'].map(deployIfNeeded));
 };
