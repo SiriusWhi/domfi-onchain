@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: UNLICENSED
-pragma solidity 0.8.5;
+pragma solidity ^0.8.5;
 
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
@@ -23,19 +23,16 @@ contract Staking is IERC900, Modifiers, Ownable, ReentrancyGuard {
     // withdrawn or renounced rewards
     uint256 public unlockedRewards;
 
-    // profile keeping track of stake and reward of user
     struct Account {
         uint256 staked;
     }
+    mapping(address => Account) private _balances;
 
     struct RewardOutput {
         FixedPoint.Unsigned rewardRatio;
         FixedPoint.Unsigned penaltyRatio;
         FixedPoint.Unsigned amount;
     }
-
-    // mapping address to thier stake profile
-    mapping(address => Account) private _balances;
 
     constructor(
         address lpToken,
@@ -51,17 +48,14 @@ contract Staking is IERC900, Modifiers, Ownable, ReentrancyGuard {
             transferOwnership(owner);
         }
 
-        require(isContract(lpToken), ERROR_NOT_A_CONTRACT);
-        LP_TOKEN = IERC20(lpToken);
-
-        require(isContract(domToken), ERROR_NOT_A_CONTRACT);
-        DOM_TOKEN = IERC20(domToken);
-
         require(totalDOM > 0, ERROR_ZERO_AMOUNT);
         TOTAL_DOM = totalDOM;
 
         require(lspExpiration > block.timestamp, ERROR_PAST_TIMESTAMP);
         LSP_EXPIRATION = lspExpiration;
+
+        LP_TOKEN = IERC20(lpToken);
+        DOM_TOKEN = IERC20(domToken);
     }
 
     /* State changing functions */
@@ -72,13 +66,11 @@ contract Staking is IERC900, Modifiers, Ownable, ReentrancyGuard {
         require(DOM_TOKEN.balanceOf(address(this)) >= TOTAL_DOM, ERROR_NOT_ENOUGH_DOM);
 
         // allow to call initialize() only once by checking if it was initialized before
-        require(STAKING_START_TIMESTAMP == 0, ERROR_STAKING_ENDED_OR_NOT_STARTED);
+        require(STAKING_START_TIMESTAMP == 0, ERROR_ALREADY_INITIALIZED);
         STAKING_START_TIMESTAMP = block.timestamp;
 
-        // lspExpiration = ultimate timestamp at which LSP will expire
-        // days from now until LSP expires
-        // should be greater than REWARD_PERIOD(in days), take care of it manually
-        require(LSP_EXPIRATION - STAKING_START_TIMESTAMP > STAKING_PERIOD, "LSP period too short");
+        require(LSP_EXPIRATION - STAKING_START_TIMESTAMP > STAKING_PERIOD, ERROR_EXPIRES_TOO_SOON);
+        require(LSP_EXPIRATION - STAKING_START_TIMESTAMP > REWARD_PERIOD, ERROR_EXPIRES_TOO_SOON);
     }
 
     function stake(uint256 amount)
@@ -183,21 +175,14 @@ contract Staking is IERC900, Modifiers, Ownable, ReentrancyGuard {
     /* Internal functions */
 
     function _stakeFor(address from, address user, uint256 amount) internal {
-        // do not allow to stake zero amount
         require(amount > 0, ERROR_ZERO_AMOUNT);
 
-        // check this contract has been given enough allowance on behalf of who is transferring
-        // so this contract can transfer LP tokens into itself to lock
         require(LP_TOKEN.allowance(from, address(this)) >= amount, ERROR_NOT_ENOUGH_ALLOWANCE);
-
-        // transfer LP tokens to itself for locking
         LP_TOKEN.safeTransferFrom(from, address(this), amount);
 
-        // increase user balance and total balance
         _balances[user].staked += amount;
         _totalStaked += amount;
 
-        // emit Staked event
         emit Staked(from, amount, _balances[user].staked);
     }
 
@@ -224,7 +209,7 @@ contract Staking is IERC900, Modifiers, Ownable, ReentrancyGuard {
             _totalStaked -= amount;
         }
 
-        // transfer back subtracted LP tokens
+        // return unstaked LP tokens
         LP_TOKEN.safeTransfer(user, amount);
 
         unlockedRewards += maxPartialRewards;
