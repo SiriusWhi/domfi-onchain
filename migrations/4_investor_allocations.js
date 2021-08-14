@@ -1,6 +1,6 @@
 const BigNumber = require('bignumber.js');
 const luxon = require('luxon');
-const { storeVester } = require('./util');
+const { storeFromNetwork } = require('./util');
 
 const DomToken = artifacts.require("DominationToken");
 const VesterFactory = artifacts.require("VesterFactory");
@@ -44,14 +44,13 @@ module.exports = async function (deployer, network) {
   const vestingEnd = vestingBeginDT.plus({years: 3}).toSeconds().toFixed();
   const timeout = luxon.Duration.fromObject({ months: 1 }).as('seconds');
 
-  console.log(`Deployed with
+  console.log(`Deploying with
     vestingBegin: ${vestingBegin}
     vestingCliff: ${vestingCliff}
     vestingEnd: ${vestingEnd}
     timeout: ${timeout}`);
 
-  for (const allocation of allocations) {
-    const start = await web3.eth.getBlockNumber();
+  const deploy = async(allocation) => {
     const data = web3.eth.abi.encodeParameters(['address','uint','uint','uint','uint'], [
       allocation.address,
       vestingBegin,
@@ -61,9 +60,12 @@ module.exports = async function (deployer, network) {
     ]);
     
     await dom.send(vFactory.address, allocation.amount, data);
-    const eventList = await vFactory.getPastEvents({ fromBlock: start}, 'VesterCreated');
-    const address = eventList[0].args.childAddress;
-    storeVester(address, network);
-    console.log(`${address} ${allocation.amount}`);
-  }
+  };
+
+  const startBlock = await web3.eth.getBlockNumber();
+  await Promise.all(allocations.map(deploy));
+
+  const eventList = await vFactory.getPastEvents('VesterCreated', { fromBlock: startBlock });
+  const addresses = eventList.slice(0, allocations.length).map((e) => e.args.childAddress);
+  storeFromNetwork('VESTERS', addresses, network);
 };

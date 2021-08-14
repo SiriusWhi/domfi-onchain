@@ -11,5 +11,4 @@ module.exports = async function (deployer, network) {
   await dom.grantRole(DEFAULT_ADMIN_ROLE, vFactory.address);
   await dom.grantRole(web3.utils.sha3("TRANSFER"), vFactory.address);
   storeFromNetwork('VESTER_FACTORY', vFactory.address, network);
-  storeFromNetwork('VESTERS', [], network);
 };
