@@ -25,6 +25,17 @@ module.exports = {
       gas: 5000000,
       gasPrice: toWei("20", "gwei"),
       network_id: 42
+    },
+    rinkeby: {
+      provider: function() {
+        return new HDWalletProvider(
+          [process.env.RINKEBY_PRIVATE_KEY],
+          process.env.RINKEBY_INFURA_ENDPOINT
+        );
+      },
+      gas: 5000000,
+      gasPrice: toWei("20", "gwei"),
+      network_id: 4
     }
   },
 

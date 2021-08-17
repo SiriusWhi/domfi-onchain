@@ -26,13 +26,12 @@ contract DominationToken is ERC777, AccessControl
         _setupRole(TRANSFER_ROLE, defaultOperators[0]);
         _setupRole(TRANSFER_TOGGLER, defaultOperators[0]);
         _setupRole(DEFAULT_ADMIN_ROLE, defaultOperators[0]);  // ability to manage roles
-        _mint(defaultOperators[0], 9e26 - 3e25, "", "");
+        _mint(defaultOperators[0], 9e26 - 3e25, "", "", false);
         
         // Grant deployer permissions and funds for vesting contracts.
         _setupRole(TRANSFER_ROLE, msg.sender);
         _setupRole(DEFAULT_ADMIN_ROLE, msg.sender);
         _mint(msg.sender, 6e26 + 3e25, "", "");
-        
     }
 
     function setTransfersAllowed(bool _transfersAllowed) external {
