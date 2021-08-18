@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: UNLICENSED
-pragma solidity ^0.8.5;
+pragma solidity 0.8.6;
 
 abstract contract Errors {
     string internal constant ERROR_ZERO_AMOUNT = "ERROR_ZERO_AMOUNT";
