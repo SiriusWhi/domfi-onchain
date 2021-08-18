@@ -215,7 +215,7 @@ contract Staking is IERC900, Modifiers, Ownable, ReentrancyGuard {
         unlockedRewards += maxPartialRewards;
 
         if (partialRewards > 0) {
-            DOM_TOKEN.transfer(user, partialRewards);
+            DOM_TOKEN.safeTransfer(user, partialRewards);
         }
 
         emit Unstaked(user, amount, _balances[user].staked);
