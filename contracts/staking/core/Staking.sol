@@ -169,6 +169,7 @@ contract Staking is IERC900, Modifiers, Ownable, ReentrancyGuard {
 
     function _stakeFor(address from, address user, uint256 amount) internal {
         require(amount > 0, ERROR_ZERO_AMOUNT);
+        require(user != address(0), ERROR_ZERO_ADDRESS);
 
         require(LP_TOKEN.allowance(from, address(this)) >= amount, ERROR_NOT_ENOUGH_ALLOWANCE);
         LP_TOKEN.safeTransferFrom(from, address(this), amount);
