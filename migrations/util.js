@@ -25,18 +25,22 @@ function getFromNetwork(key, network) {
   return data[network]?.[key];
 }
 
+function getPair(underlying, network) {
+  return getFromNetwork(`${underlying}`, network);
+}
+
 function getLSPAddress(underlying, network) {
-  return getFromNetwork(`${underlying}DOM`, network);
+  return getPair(underlying, network)?.["LSP"];
 }
 
 function getLPAddress(underlying, side, network) {
-  const key = side == 'long' ? `${underlying}DOM_LP` : `${underlying}-ALTDOM_LP`;
-  return getFromNetwork(key, network);
+  const key = `${side.toUpperCase()}_LP`;
+  return getPair(underlying, network)?.[key];
 }
 
 function getStakingAddress(underlying, side, network) {
-  const key = side == 'long' ? `${underlying}DOM_STAKING` : `${underlying}-ALTDOM_STAKING`;
-  return getFromNetwork(key, network);
+  const key = `${side.toUpperCase()}_STAKING`;
+  return getPair(underlying, network)?.[key];
 }
 
 function storeFromNetwork(key, val, network) {
@@ -44,7 +48,7 @@ function storeFromNetwork(key, val, network) {
   const data = raw ? JSON.parse(raw) : {};
   const oldVal = data[network]?.[key];
   if (oldVal && oldVal != val) {
-    console.log(`overwriting saved ${oldVal} with ${val}`);
+    console.log(`overwriting saved ${JSON.stringify(oldVal)} with ${JSON.stringify(val)}`);
   }
   if (!data[network]) {
     data[network] = {};
@@ -53,18 +57,29 @@ function storeFromNetwork(key, val, network) {
   fs.writeFileSync('./artifacts.json', JSON.stringify(data, null, 4));
 }
 
+function storePair(underlying, pair, network) {
+  storeFromNetwork(`${underlying}`, pair, network);
+}
+
 function storeLSPAddress(underlying, address, network) {
-  storeFromNetwork(`${underlying}DOM`, address, network);
+  const key = `LSP`;
+  const pair = getPair(underlying, network) || {};
+  pair[key] = address;
+  storePair(underlying, pair, network);
 }
 
 function storeLPAddress(underlying, side, address, network) {
-  const key = side == 'long' ? `${underlying}DOM_LP` : `${underlying}-ALTDOM_LP`;
-  storeFromNetwork(key, address, network);
+  const key = `${side.toUpperCase()}_LP`;
+  const pair = getPair(underlying, network) || {};
+  pair[key] = address;
+  storePair(underlying, pair, network);
 }
 
 function storeStakingAddress(underlying, side, address, network) {
-  const key = side == 'long' ? `${underlying}DOM_STAKING` : `${underlying}-ALTDOM_STAKING`;
-  storeFromNetwork(key, address, network);
+  const key = `${side.toUpperCase()}_STAKING`;
+  const pair = getPair(underlying, network) || {};
+  pair[key] = address;
+  storePair(underlying, pair, network);
 }
 
 async function getDominance(symbol) {

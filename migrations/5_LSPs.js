@@ -1,7 +1,8 @@
 const LongShortPairCreatorArtifact = require("@uma/core/build/contracts/LongShortPairCreator.json");
 const LinearLongShortPairFinancialProductLibraryArtifact = require("@uma/core/build/contracts/LinearLongShortPairFinancialProductLibrary.json");
+const LongShortPairArtifact = require("@uma/core/build/contracts/LongShortPair.json");
 const abi = require('./abi');
-const { getUSDCAddress, getLSPAddress, storeLSPAddress } = require('./util');
+const { getUSDCAddress, getLSPAddress, storeFromNetwork } = require('./util');
 
 const contract = require("@truffle/contract");
 
@@ -32,6 +33,10 @@ module.exports = async function (_, network, accounts) {
   LinearFPL.setProvider(web3.currentProvider);
   LinearFPL.defaults({from: deployer});
   const linearFPL = await LinearFPL.deployed();
+
+  const LongShortPair = contract(LongShortPairArtifact);
+  LongShortPair.setProvider(web3.currentProvider);
+  LongShortPair.defaults({from: deployer});
 
   const ERC20 = contract({abi: abi.ERC20});
   ERC20.setProvider(web3.currentProvider);
@@ -86,7 +91,12 @@ module.exports = async function (_, network, accounts) {
       throw e;
     }
   
-    storeLSPAddress(underlyingSymbol, address, network);
+    const lsp = await LongShortPair.at(address);
+    storeFromNetwork(underlyingSymbol,
+      {'LSP': address,
+        'LONG': await lsp.longToken(),
+        'SHORT': await lsp.shortToken()},
+      network);
     return address;
   };
 
