@@ -47,6 +47,10 @@ contract('VesterFactory', (accounts) => {
     assert(await(vester.vestingEnd()) == vestingStart + vestingDuration);
   });
 
+  it("rejects send()s without userData", async () => {
+    truffleAssert.reverts(
+      dom.send(vf.address, 10000, "0x00"));
+  });
 });
 
 contract('Vester', (accounts) => {
