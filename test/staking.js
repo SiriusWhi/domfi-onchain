@@ -335,10 +335,10 @@ contract('Staking', (accounts) => {
 
     await time.increaseTo(halfway.toFixed());
     const blockNumber = await time.latestBlock();
+    await staking.unstake(accountBalance, {from: user1});
     const [ratios, account] = await Promise.all([
       staking.ratios(blockNumber),
-      staking.account(user1, blockNumber),
-      staking.unstake(accountBalance, {from: user1})
+      staking.account(user1, blockNumber)
     ]);
 
     const finalDOM = await dom.balanceOf(user1);
