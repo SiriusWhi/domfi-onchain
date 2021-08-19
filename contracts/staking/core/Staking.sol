@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: UNLICENSED
+// SPDX-License-Identifier: MIT AND AGPL-3.0-only
 pragma solidity 0.8.6;
 
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
@@ -11,6 +11,14 @@ import {IERC900} from "../interfaces/IERC900.sol";
 import {Modifiers} from "../utils/Modifiers.sol";
 
 
+/**
+* @title  Domination Finance LP Staking contract
+* @notice Distributes $DOM tokens to Domination Pair liquidity providers who stake their LP tokens. Once the "staking
+*         period" ends, $DOM rewards are reserved for stakers in proportion to their share of the pool. If a user
+*         unstakes before the end of the program, only part of the reserved rewards are granted. This partial reward is
+*         quadratic over the program duration, and is scaled by an additional linear penalty during the penalty period.
+*         Any reserved $DOM given up by early unstakes can be withdrawn by the contract owner.
+*/
 contract Staking is IERC900, Modifiers, Ownable, ReentrancyGuard {
     using FixedPoint for FixedPoint.Unsigned;
     using SafeERC20 for IERC20;
@@ -34,6 +42,16 @@ contract Staking is IERC900, Modifiers, Ownable, ReentrancyGuard {
         FixedPoint.Unsigned amount;
     }
 
+    /**
+     * @notice Create a Staking contract for a particular LP token, period, and $DOM allocation.
+     * @dev    Contract must be funded and permitted to transfer $DOM (if applicable) before users can stake.
+     * @param lpToken address of LP token, i.e. BTC-ALTDOM-Dec-2022/USDC
+     * @param domToken address of rewards token
+     * @param owner recipient of leftover rewards
+     * @param totalDOM maximum DOM to be distributed
+     * @param stakingStart timestamp when users can stake
+     * @param lspExpiration timestamp when users can claim their entire reserved reward
+     */
     constructor(
         address lpToken,
         address domToken,
@@ -67,6 +85,11 @@ contract Staking is IERC900, Modifiers, Ownable, ReentrancyGuard {
 
     /* State changing functions */
 
+    /**
+     * @notice Stake LP tokens
+     * @dev    Must approve at least <amount> LP tokens before calling
+     * @param amount LP tokens to stake
+     **/
     function stake(uint256 amount)
         external
         override
@@ -77,6 +100,12 @@ contract Staking is IERC900, Modifiers, Ownable, ReentrancyGuard {
         _stakeFor(sender, sender, amount);
     }
 
+    /**
+     * @notice Stake LP tokens on behalf of an address, which will receive the LP tokens and rewards when it unstake()s.
+     * @dev    Must approve at least <amount> LP tokens before calling
+     * @param amount LP tokens to stake
+     * @param beneficiary address which will be able to unstake
+     **/
     function stakeFor(
         address beneficiary,
         uint256 amount
@@ -90,6 +119,10 @@ contract Staking is IERC900, Modifiers, Ownable, ReentrancyGuard {
         _stakeFor(sender, beneficiary, amount);
     }
 
+    /**
+     * @notice Unstake previously-staked LP tokens and receive a $DOM reward, if applicable. Partial unstakes supported.
+     * @param amount LP tokens to withdraw
+     **/
     function unstake(uint256 amount)
         external
         override
@@ -130,11 +163,12 @@ contract Staking is IERC900, Modifiers, Ownable, ReentrancyGuard {
         return _balances[user].staked;
     }
 
+    /**
+    * @dev This contract doesn't support IERC900's history interface. Use the event log or an archive node.
+    */
     function supportsHistory() external pure override returns (bool) {
         return false;
     }
-
-    //
 
     function isStakingAllowed() external view returns (bool) {
         return _isStakingAllowed();
@@ -207,8 +241,7 @@ contract Staking is IERC900, Modifiers, Ownable, ReentrancyGuard {
             .rawValue;
 
         _balances[user].staked -= amount;
-        if (_isStakingAllowed()) {
-            // during the staking period, withdraws don't waste any rewards
+        if (_isStakingAllowed()) { // during the staking period, withdraws don't waste any rewards
             _totalStaked -= amount;
         }
 

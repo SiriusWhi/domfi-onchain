@@ -8,6 +8,10 @@ import "@openzeppelin/contracts/token/ERC777/IERC777Recipient.sol";
 import "@openzeppelin/contracts/utils/introspection/IERC1820Registry.sol";
 import "@openzeppelin/contracts/access/AccessControl.sol";
 
+/**
+* @title Vester factory
+* @notice Creates Vester contracts when sent ERC777 tokens to distribute
+*/
 contract VesterFactory is IERC777Recipient {
     using SafeERC20 for IERC20;
 
@@ -24,7 +28,11 @@ contract VesterFactory is IERC777Recipient {
 
     event VesterCreated(address childAddress);
 
-
+    /**
+    * @notice ERC777 send() receive hook. Create a Vester contract
+    * @param vestingAmount received amount / amount for new Vester
+    * @param userData ABI encoded parameters for Vester (except for $DOM address and vesting amount)
+    */
     function tokensReceived(
         address /* operator */,
         address /* from */,
@@ -61,6 +69,11 @@ contract VesterFactory is IERC777Recipient {
      }
 }
 
+/**
+ * Based on Uniswap's TreasuryVester: https://github.com/Uniswap/governance/blob/master/contracts/TreasuryVester.sol
+ * @title $DOM vesting contract
+ * @notice distributes a token to a single recipient over a linear vesting schedule
+ */
 contract Vester {
     using SafeERC20 for IERC20;
 
@@ -75,6 +88,15 @@ contract Vester {
 
     uint public lastUpdate;
 
+    /**
+    * @param dom_ address of token to be disbursed
+    * @param recipient_ recipient of token
+    * @param vestingAmount_ total amount to be disbursed
+    * @param vestingBegin_ timestamp to start vesting
+    * @param vestingCliff_ timestamp at which first withdrawal can be made
+    * @param vestingEnd_ timestamp at which all tokens can be withdrawn
+    * @param timeout_ minimum seconds between withdrawals (commonly: 0, 1 day, 1 month)
+    */
     constructor(
         address dom_,
         address recipient_,
@@ -100,11 +122,19 @@ contract Vester {
         lastUpdate = vestingBegin;
     }
 
+    /**
+     * @notice Transfer ownership of vested tokens
+     * @param recipient_ new beneficiary
+     */
     function setRecipient(address recipient_) public {
         require(msg.sender == recipient, 'Vester::setRecipient: unauthorized');
+        require(recipient != address(0), "Vester::setRecipient: Can't transfer to 0x00");
         recipient = recipient_;
     }
 
+    /**
+    * @notice claim pending tokens
+    */
     function claim() public {
         require(block.timestamp >= vestingCliff, 'Vester::claim: not time yet');
         require(block.timestamp >= lastUpdate + timeout || lastUpdate == vestingBegin, 'Vester::claim: cooldown');
