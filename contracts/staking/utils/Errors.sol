@@ -8,7 +8,6 @@ abstract contract Errors {
     string internal constant ERROR_NOT_ENOUGH_ALLOWANCE = "Not enough allowance";
     string internal constant ERROR_NOT_ENOUGH_STAKE = "Not enough staked";
     string internal constant ERROR_STAKING_NOT_STARTED = "Staking not started";
-    string internal constant ERROR_ALREADY_INITIALIZED = "Already initialized";
     string internal constant ERROR_EXPIRES_TOO_SOON = "LSP period too short";
     string internal constant ERROR_STAKING_PROHIBITED = "Staking not allowed";
 }

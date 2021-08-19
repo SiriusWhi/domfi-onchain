@@ -19,18 +19,19 @@ module.exports = async function (deployer, network, accounts) {
 
   const deployStaking = async (LPaddress, stakingDOM) => {
     const now = (await web3.eth.getBlock('latest')).timestamp;
-    const lspExpiration = luxon.DateTime.fromSeconds(now).plus({months: 6});
+    const stakingStart = luxon.DateTime.fromSeconds(now).plus({hours: 1});
+    const lspExpiration = stakingStart.plus({months: 6});
     const staking = await Staking.new(
       LPaddress,
       dom.address,
       getDAO(network),
       stakingDOM,
+      Math.floor(stakingStart.toSeconds()),
       Math.floor(lspExpiration.toSeconds())
     );
   
     await dom.grantRole(web3.utils.sha3("TRANSFER"), staking.address);
     await dom.transfer(staking.address, stakingDOM);
-    await staking.initialize();
 
     return staking.address;
   };
