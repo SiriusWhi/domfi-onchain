@@ -52,7 +52,7 @@ contract DominationToken is ERC777, AccessControl
     }
 
     function setTransfersAllowed(bool _transfersAllowed) external {
-        require(hasRole(TRANSFER_TOGGLER, msg.sender), "DOM token: no toggle privileges");
+        require(hasRole(TRANSFER_TOGGLER, msg.sender), "UNAUTHORIZED");
         transfersAllowed = _transfersAllowed;
         emit TransfersAllowed(transfersAllowed);
     }
@@ -63,7 +63,7 @@ contract DominationToken is ERC777, AccessControl
             transfersAllowed ||
                 from == address(0) ||
                 hasRole(TRANSFER_ROLE, msg.sender),
-            "DOM token: no transfer privileges"
+            "NO_TRANSFERS"
         );
         _;
     }
