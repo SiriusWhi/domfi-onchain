@@ -98,6 +98,15 @@ contract Staking is IERC900, Modifiers, Ownable, ReentrancyGuard {
         _unstake(_msgSender(), amount);
     }
 
+
+    /**
+    * @notice Withdraw $DOM beyond what is committed to staking rewards.
+    * @dev    Unstaking early "unlocks" rewards in excess of those given out. The remaining funds out of TOTAL_DOM have
+              been promised to stakers. Contract balance could also be greater than unlocked + locked, in which case
+              also withdraw the excess.
+              Callable at any time without affecting future rewards, but will revert if contract is underfunded. Likely
+              called soon after the end of the staking program, and some time later for any stragglers.
+    */
     function withdrawLeftover() external {
         uint256 locked = TOTAL_DOM - unlockedRewards;
         DOM_TOKEN.safeTransfer(owner(), DOM_TOKEN.balanceOf(address(this)) - locked);
