@@ -48,7 +48,7 @@ contract('VesterFactory', (accounts) => {
   });
 
   it("rejects send()s without userData", async () => {
-    truffleAssert.reverts(
+    await truffleAssert.reverts(
       dom.send(vf.address, 10000, "0x00"));
   });
 });
