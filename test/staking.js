@@ -277,6 +277,11 @@ contract('Staking', (accounts) => {
 
   it("should allow a user to stake on behalf of another", async () => {
     await LP.approve(staking.address, accountBalance);
+
+    await truffleAssert.reverts(
+      staking.stakeFor("0x0000000000000000000000000000000000000000", accountBalance),
+      "Can't stake for 0x00");
+
     await staking.stakeFor(user1, accountBalance);
 
     const initialDOM = await dom.balanceOf(user1);
