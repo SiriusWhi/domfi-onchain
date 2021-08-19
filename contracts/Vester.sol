@@ -128,7 +128,7 @@ contract Vester {
      */
     function setRecipient(address recipient_) public {
         require(msg.sender == recipient, 'Vester::setRecipient: unauthorized');
-        require(recipient != address(0), "Vester::setRecipient: Can't transfer to 0x00");
+        require(recipient_ != address(0), "Vester::setRecipient: Can't transfer to 0x00");
         recipient = recipient_;
     }
 
