@@ -149,13 +149,15 @@ class StakingClient {
     return await this.contract.withdrawLeftover(...args(options));
   }
 
-  async account(user) {
-    const raw = await this.contract.account(user);
+  async account(user, blockNumber=null) {
+    const request = await this.contract.account.request(user);
+    const raw = await web3.eth.call(request, blockNumber);
+    const results = web3.eth.abi.decodeParameters(['uint','uint','uint','uint'], raw);
     return {
-      0: fromTokenAmount(raw[0], 18),
-      1: fromTokenAmount(raw[1], 18),
-      2: fromTokenAmount(raw[2], 18),
-      3: fromTokenAmount(raw[3], 18)
+      0: fromTokenAmount(results[0], 18),
+      1: fromTokenAmount(results[1], 18),
+      2: fromTokenAmount(results[2], 18),
+      3: fromTokenAmount(results[3], 18)
     };
   }
 
@@ -168,11 +170,13 @@ class StakingClient {
     };
   }
 
-  async ratios() {
-    const raw = await this.contract.ratios();
+  async ratios(blockNumber=null) {
+    const request = await this.contract.ratios.request();
+    const raw = await web3.eth.call(request, blockNumber);
+    const results = web3.eth.abi.decodeParameters(['uint','uint'], raw);
     return {
-      0: fromTokenAmount(raw[0], 18),
-      1: fromTokenAmount(raw[1], 18)
+      0: fromTokenAmount(results[0], 18),
+      1: fromTokenAmount(results[1], 18)
     };
   }
 
