@@ -39,6 +39,7 @@ contract Staking is IERC900, Modifiers, Ownable, ReentrancyGuard {
         address domToken,
         address owner,
         uint256 totalDOM,
+        uint256 stakingStart,
         uint256 lspExpiration
     )
         Ownable()
@@ -51,27 +52,20 @@ contract Staking is IERC900, Modifiers, Ownable, ReentrancyGuard {
         require(totalDOM > 0, ERROR_ZERO_AMOUNT);
         TOTAL_DOM = totalDOM;
 
+        require(stakingStart > block.timestamp, ERROR_PAST_TIMESTAMP);
+        STAKING_START_TIMESTAMP = stakingStart;
+
         require(lspExpiration > block.timestamp, ERROR_PAST_TIMESTAMP);
         LSP_EXPIRATION = lspExpiration;
+
+        require(LSP_EXPIRATION - STAKING_START_TIMESTAMP > STAKING_PERIOD, ERROR_EXPIRES_TOO_SOON);
+        require(LSP_EXPIRATION - STAKING_START_TIMESTAMP > REWARD_PERIOD, ERROR_EXPIRES_TOO_SOON);
 
         LP_TOKEN = IERC20(lpToken);
         DOM_TOKEN = IERC20(domToken);
     }
 
     /* State changing functions */
-
-    // to initialize the staking start time after depositing DOM
-    function initialize() external {
-        // this contract must have enough DOM to allow to start staking
-        require(DOM_TOKEN.balanceOf(address(this)) >= TOTAL_DOM, ERROR_NOT_ENOUGH_DOM);
-
-        // allow to call initialize() only once by checking if it was initialized before
-        require(STAKING_START_TIMESTAMP == 0, ERROR_ALREADY_INITIALIZED);
-        STAKING_START_TIMESTAMP = block.timestamp;
-
-        require(LSP_EXPIRATION - STAKING_START_TIMESTAMP > STAKING_PERIOD, ERROR_EXPIRES_TOO_SOON);
-        require(LSP_EXPIRATION - STAKING_START_TIMESTAMP > REWARD_PERIOD, ERROR_EXPIRES_TOO_SOON);
-    }
 
     function stake(uint256 amount)
         external
@@ -157,7 +151,6 @@ contract Staking is IERC900, Modifiers, Ownable, ReentrancyGuard {
     function account(address user)
         external
         view
-        afterInitialize
         returns (
             uint256 _rewardRatio,
             uint256 _penaltyRatio,
@@ -291,8 +284,12 @@ contract Staking is IERC900, Modifiers, Ownable, ReentrancyGuard {
         view
         returns (FixedPoint.Unsigned memory)
     {
-        FixedPoint.Unsigned memory offset =
-            FixedPoint.fromUnscaledUint(timestamp).sub(STAKING_START_TIMESTAMP);
+        FixedPoint.Unsigned memory offset;
+        if (timestamp > STAKING_START_TIMESTAMP) {
+            offset = FixedPoint.fromUnscaledUint(timestamp).sub(STAKING_START_TIMESTAMP);
+        } else {
+            offset = FixedPoint.fromUnscaledUint(0);
+        }
         
         FixedPoint.Unsigned memory lspLength =
             FixedPoint.fromUnscaledUint(LSP_EXPIRATION).sub(STAKING_START_TIMESTAMP);
@@ -318,9 +315,13 @@ contract Staking is IERC900, Modifiers, Ownable, ReentrancyGuard {
         view
         returns (FixedPoint.Unsigned memory)
     {
-        FixedPoint.Unsigned memory offset =
-            FixedPoint.fromUnscaledUint(timestamp).sub(STAKING_START_TIMESTAMP);
-        
+        FixedPoint.Unsigned memory offset;
+        if (timestamp > STAKING_START_TIMESTAMP) {
+            offset = FixedPoint.fromUnscaledUint(timestamp).sub(STAKING_START_TIMESTAMP);
+        } else {
+            offset = FixedPoint.fromUnscaledUint(0);
+        }
+
         if (offset.isLessThan(STAKING_PERIOD)) {
             return FixedPoint.fromUnscaledUint(1);
         }

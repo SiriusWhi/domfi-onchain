@@ -138,22 +138,103 @@ contract('Staking', (accounts) => {
 
     await time.advanceBlock();
     const now = await time.latest();
-    const target = now.add(2); // slop for slow tests; not too much
-    lspExpiration = target.add(time.duration.days(200));
+    stakingStart = now.add(time.duration.hours(1));
+    lspExpiration = stakingStart.add(time.duration.days(200));
 
     staking = new StakingClient(await Staking.new(
       LP.address,
       dom.address,
       deployer,
       stakingDOM.toWeb3(),
+      stakingStart.toString(),
       lspExpiration.toString(),
     ));
 
     await dom.grantRole("TRANSFER", staking.address);
     await dom.transfer(staking.address, stakingDOM);
 
-    await staking.initialize();
-    stakingStart = await staking.STAKING_START_TIMESTAMP();
+    await time.increaseTo(stakingStart);
+  });
+
+  it("should not allow creation with invalid parameters", async () => {
+    await time.advanceBlock();
+    const now = await time.latest();
+    stakingStart = now.add(time.duration.hours(1));
+    lspExpiration = stakingStart.add(time.duration.days(200));
+
+    await truffleAssert.reverts(
+      Staking.new(
+        LP.address,
+        dom.address,
+        deployer,
+        0,
+        stakingStart.toString(),
+        lspExpiration.toString(),
+      ),
+      'ERROR_ZERO_AMOUNT'
+    );
+
+    stakingStart = now.sub(time.duration.hours(1));
+    lspExpiration = stakingStart.add(time.duration.days(200));
+    await truffleAssert.reverts(
+      Staking.new(
+        LP.address,
+        dom.address,
+        deployer,
+        stakingDOM.toWeb3(),
+        stakingStart.toString(),
+        lspExpiration.toString(),
+      ),
+      'LSP already expired'
+    );
+
+    stakingStart = now.add(time.duration.hours(1));
+    lspExpiration = stakingStart.add(time.duration.days(119));
+    await truffleAssert.reverts(
+      Staking.new(
+        LP.address,
+        dom.address,
+        deployer,
+        stakingDOM.toWeb3(),
+        stakingStart.toString(),
+        lspExpiration.toString(),
+      ),
+      'LSP period too short'
+    );
+  });
+
+  it("should not allow staking before contract is ready", async () => {
+    await time.advanceBlock();
+    const now = await time.latest();
+    stakingStart = now.add(time.duration.hours(1));
+    lspExpiration = stakingStart.add(time.duration.days(200));
+
+    const staking2 = new StakingClient(await Staking.new(
+      LP.address,
+      dom.address,
+      deployer,
+      stakingDOM.toWeb3(),
+      stakingStart.toString(),
+      lspExpiration.toString(),
+    ));
+    await dom.grantRole("TRANSFER", staking2.address);
+    await LP.approve(staking2.address, accountBalance);
+
+    // fail before stakingStart
+    await truffleAssert.reverts(
+      staking2.stake(accountBalance),
+      'Staking not allowed'
+    );
+
+    // fail when contract not funded
+    await time.increaseTo(stakingStart);
+    await truffleAssert.reverts(
+      staking2.stake(accountBalance),
+      'Staking not allowed'
+    );
+
+    await dom.transfer(staking2.address, stakingDOM);
+    await staking2.stake(accountBalance);
   });
 
   it("should allow users to stake during first 7 days", async () => {
