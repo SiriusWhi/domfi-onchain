@@ -171,7 +171,7 @@ contract('Staking', (accounts) => {
         stakingStart.toString(),
         lspExpiration.toString(),
       ),
-      'ERROR_ZERO_AMOUNT'
+      'ZERO_AMOUNT'
     );
 
     stakingStart = now.sub(time.duration.hours(1));
@@ -185,7 +185,7 @@ contract('Staking', (accounts) => {
         stakingStart.toString(),
         lspExpiration.toString(),
       ),
-      'LSP already expired'
+      'PAST_TIMESTAMP'
     );
 
     stakingStart = now.add(time.duration.hours(1));
@@ -199,7 +199,7 @@ contract('Staking', (accounts) => {
         stakingStart.toString(),
         lspExpiration.toString(),
       ),
-      'LSP period too short'
+      'EXPIRES_TOO_SOON'
     );
   });
 
@@ -223,14 +223,14 @@ contract('Staking', (accounts) => {
     // fail before stakingStart
     await truffleAssert.reverts(
       staking2.stake(accountBalance),
-      'Staking not allowed'
+      'STAKING_PROHIBITED'
     );
 
     // fail when contract not funded
     await time.increaseTo(stakingStart);
     await truffleAssert.reverts(
       staking2.stake(accountBalance),
-      'Staking not allowed'
+      'STAKING_PROHIBITED'
     );
 
     await dom.transfer(staking2.address, stakingDOM);
@@ -255,7 +255,7 @@ contract('Staking', (accounts) => {
 
     await truffleAssert.reverts(
       staking.stake($DOM('100'), {from: accounts[3]}),
-      'Staking not allowed');
+      'STAKING_PROHIBITED');
   });
 
   it("should allow users to withdraw at any time", async () => {
@@ -280,7 +280,7 @@ contract('Staking', (accounts) => {
 
     await truffleAssert.reverts(
       staking.stakeFor("0x0000000000000000000000000000000000000000", accountBalance),
-      "Can't stake for 0x00");
+      "ZERO_ADDRESS");
 
     await staking.stakeFor(user1, accountBalance);
 

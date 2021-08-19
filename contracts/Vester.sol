@@ -41,7 +41,7 @@ contract VesterFactory is IERC777Recipient {
         bytes calldata userData,
         bytes calldata /* operatorData */
     ) external override {
-        require(msg.sender == DomToken, "VesterFactory:: tokensReceived: not DOM token");
+        require(msg.sender == DomToken, "WRONG_TOKEN");
 
         (address recipient,
         uint vestingBegin,
@@ -106,9 +106,9 @@ contract Vester {
         uint vestingEnd_,
         uint timeout_
     ) {
-        require(vestingBegin_ >= block.timestamp, 'Vester::constructor: vesting begin too early');
-        require(vestingCliff_ >= vestingBegin_, 'Vester::constructor: cliff is too early');
-        require(vestingEnd_ > vestingCliff_, 'Vester::constructor: end is too early');
+        require(vestingBegin_ >= block.timestamp, 'BEGIN_TOO_EARLY');
+        require(vestingCliff_ >= vestingBegin_, 'CLIFF_TOO_EARLY');
+        require(vestingEnd_ > vestingCliff_, 'END_TOO_EARLY');
 
         dom = IERC20(dom_);
         recipient = recipient_;
@@ -127,8 +127,8 @@ contract Vester {
      * @param recipient_ new beneficiary
      */
     function setRecipient(address recipient_) public {
-        require(msg.sender == recipient, 'Vester::setRecipient: unauthorized');
-        require(recipient_ != address(0), "Vester::setRecipient: Can't transfer to 0x00");
+        require(msg.sender == recipient, 'UNAUTHORIZED');
+        require(recipient_ != address(0), "ZERO_ADDRESS");
         recipient = recipient_;
     }
 
@@ -136,8 +136,8 @@ contract Vester {
     * @notice claim pending tokens
     */
     function claim() public {
-        require(block.timestamp >= vestingCliff, 'Vester::claim: not time yet');
-        require(block.timestamp >= lastUpdate + timeout || lastUpdate == vestingBegin, 'Vester::claim: cooldown');
+        require(block.timestamp >= vestingCliff, 'BEFORE_CLIFF');
+        require(block.timestamp >= lastUpdate + timeout || lastUpdate == vestingBegin, 'COOLDOWN');
         uint amount;
         if (block.timestamp >= vestingEnd) {
             amount = dom.balanceOf(address(this));
