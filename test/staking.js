@@ -617,4 +617,94 @@ contract('Staking', (accounts) => {
     assert((await dom.balanceOf(staking.address)).eq(0), "all DOM successfully withdrawn");
   });
 
+
+  it("withdrawLeftover() should never change reward distribution", async () => {
+    const user1 = accounts[1];
+    await LP.approve(staking.address, accountBalance, {from: user1});
+    await staking.stake(accountBalance, {from: user1});
+
+    const totalStaked = accountBalance;
+    const model = helpers.rewardsModel(stakingStart, lspExpiration, stakingDOM, totalStaked);
+
+    const checkUnstake = async (user, amount) => {
+      const oldBal = await dom.balanceOf(user);
+
+      await staking.unstake(amount, {from: user});
+      const timestamp = await time.latest();
+
+      const newBal = await dom.balanceOf(user);
+      const expectedReward = model.totalReward(amount, timestamp);
+      await testTransfer({
+        staking,
+        model,
+        prevBalance: oldBal,
+        nextBalance: newBal,
+        expected: expectedReward,
+      });
+    };
+
+    const checkWithdrawLeftovers = async (unstakeAmount) => {
+      const timestamp = await time.latest();
+
+      const oldBal = await dom.balanceOf(deployer);
+      await staking.withdrawLeftover();
+      const newBal = await dom.balanceOf(deployer);
+      const actual = newBal.sub(oldBal);
+
+      const partialReward = model.totalReward(unstakeAmount, timestamp);
+      const maxReward = model.totalReward(unstakeAmount, lspExpiration);
+      const expected = maxReward.sub(partialReward);
+
+      const difference = actual.sub(expected);
+      try {
+        assert(difference.abs().lte(DomTokenAmount.fromWeb3(1)),
+          "Don't transfer more or less than expected");
+      }
+      catch (e) {
+        printTable([
+          { name: "Withdrawn Leftovers",
+            actual: actual.toFixed(18),
+            expected: expected.toFixed(18),
+            delta: `${sign(difference)}${difference.toFixed(18)}`
+          },
+        ]);
+        // throw e;
+      }
+    };
+
+    const unstakeAmount = accountBalance.div(4);
+    const stakingEnds = stakingStart.add(time.duration.days(7));
+    const penaltyEnds = stakingEnds.add(time.duration.days(120));
+
+    await dom.transfer(staking.address, $DOM(20), {from: deployer});
+    const initialBalance = await dom.balanceOf(deployer);
+    await staking.withdrawLeftover();
+    const newBalance = await dom.balanceOf(deployer);
+    assert.equal(newBalance.sub(initialBalance).toString(), $DOM(20).toString(),
+      "Staking should withdraw any balance > TOTAL_DOM");
+
+    await time.increaseTo(stakingEnds);
+    await checkUnstake(user1, unstakeAmount);
+    await checkWithdrawLeftovers(unstakeAmount);
+
+    const third = penaltyEnds.sub(stakingEnds).div(3);
+    await time.increaseTo(stakingEnds.add(third));
+    await checkUnstake(user1, unstakeAmount);
+    await checkWithdrawLeftovers(unstakeAmount);
+
+    const half = lspExpiration.sub(penaltyEnds).div(2);
+    await time.increaseTo(penaltyEnds.add(half));
+    await checkUnstake(user1, unstakeAmount);
+    await checkWithdrawLeftovers(unstakeAmount);
+
+    await time.increaseTo(lspExpiration.add(time.duration.days(2)));
+    await checkUnstake(user1, unstakeAmount);
+    await checkWithdrawLeftovers(unstakeAmount);
+
+    await staking.withdrawLeftover();
+
+    assert((await LP.balanceOf(staking.address)).eq(0), "all LPs successfully exited");
+    assert((await dom.balanceOf(staking.address)).eq(0), "all DOM successfully withdrawn");
+  });
+
 });
