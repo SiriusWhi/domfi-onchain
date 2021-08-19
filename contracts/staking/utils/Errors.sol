@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: UNLICENSED
+// SPDX-License-Identifier: MIT AND AGPL-3.0-only
 pragma solidity 0.8.6;
 
 abstract contract Errors {
