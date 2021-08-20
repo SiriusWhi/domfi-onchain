@@ -58,7 +58,7 @@ module.exports = async function (_, network, accounts) {
     const now = luxon.DateTime.now();
     const expiration = now.plus({months: 6}).endOf('month');
   
-    const makeSynthSymbol = (side) => `${underlyingSymbol}${side === 'long' ? 'DOM' : '-ALTDOM'}`;
+    const makeSynthSymbol = (side) => `${side === 'long' ? '' : 'i'}${underlyingSymbol}DOM`;
     const makeSynthName = (side) => `${makeSynthSymbol(side)} (${expiration.monthShort} ${expiration.year})`;
     const makePairName = () => `${underlyingSymbol} Dominance Pair (${expiration.monthShort} ${expiration.year})`;
 
