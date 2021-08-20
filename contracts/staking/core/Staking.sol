@@ -73,11 +73,8 @@ contract Staking is IERC900, Modifiers, Ownable, ReentrancyGuard {
         require(stakingStart > block.timestamp, ERROR_PAST_TIMESTAMP);
         STAKING_START_TIMESTAMP = stakingStart;
 
-        require(lspExpiration > block.timestamp, ERROR_PAST_TIMESTAMP);
+        require(lspExpiration - STAKING_START_TIMESTAMP > REWARD_PERIOD, ERROR_EXPIRES_TOO_SOON);
         LSP_EXPIRATION = lspExpiration;
-
-        require(LSP_EXPIRATION - STAKING_START_TIMESTAMP > STAKING_PERIOD, ERROR_EXPIRES_TOO_SOON);
-        require(LSP_EXPIRATION - STAKING_START_TIMESTAMP > REWARD_PERIOD, ERROR_EXPIRES_TOO_SOON);
 
         LP_TOKEN = IERC20(lpToken);
         DOM_TOKEN = IERC20(domToken);
