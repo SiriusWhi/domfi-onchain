@@ -13,7 +13,7 @@ import {Modifiers} from "../utils/Modifiers.sol";
 
 /**
 * @title  Domination Finance LP Staking contract
-* @notice Distributes $DOM tokens to Domination Pair liquidity providers who stake their LP tokens. Once the "staking
+* @notice Distributes $DOM tokens to dominance pair liquidity providers who stake their LP tokens. Once the "staking
 *         period" ends, $DOM rewards are reserved for stakers in proportion to their share of the pool. If a user
 *         unstakes before the end of the program, only part of the reserved rewards are granted. This partial reward is
 *         quadratic over the program duration, and is scaled by an additional linear penalty during the penalty period.
