@@ -47,10 +47,6 @@ contract('VesterFactory', (accounts) => {
     assert(await(vester.vestingEnd()) == vestingStart + vestingDuration);
   });
 
-  it("rejects send()s without userData", async () => {
-    await truffleAssert.reverts(
-      dom.send(vf.address, 10000, "0x00"));
-  });
 });
 
 contract('Vester', (accounts) => {
@@ -84,12 +80,12 @@ contract('Vester', (accounts) => {
 
   it("should not allow someone else to transfer claim rights", () => {
     truffleAssert.reverts(
-      vester.setRecipient(accounts[1], {from: accounts[1]}), 'UNAUTHORIZED');
+      vester.setRecipient(accounts[1], {from: accounts[1]}), 'Vester::setRecipient: unauthorized');
   });
 
   it("should not pay out before the cliff", () => {
     truffleAssert.reverts(
-      vester.claim(), 'BEFORE_CLIFF');
+      vester.claim(), 'Vester::claim: not time yet');
   });
 
   it("should pay out linearly between cliff and end date", async () => {
@@ -107,7 +103,7 @@ contract('Vester', (accounts) => {
     await vester.claim();
     await time.increase(50); // less than the timeout
     truffleAssert.reverts(
-      vester.claim(), 'COOLDOWN');
+      vester.claim(), 'Vester::claim: cooldown');
   });
 
   it("should emit all tokens after vesting is done", async () => {

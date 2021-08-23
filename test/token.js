@@ -15,16 +15,16 @@ contract('DominationToken', (accounts) => {
 
   it("should not allow transfers ", async () => {
     truffleAssert.reverts(
-      dom.send(deployer, 5, "0x0", {from: user}), 'NO_TRANSFERS'
+      dom.send(deployer, 5, "0x0", {from: user}), 'DOM token: no transfer privileges'
     );
     truffleAssert.reverts(
-      dom.transfer(deployer, 50, {from: user}), 'NO_TRANSFERS'
+      dom.transfer(deployer, 50, {from: user}), 'DOM token: no transfer privileges'
     );
   });
 
   it("should prohibit unauthorized transfer toggles", async () => {
     truffleAssert.reverts(
-      dom.setTransfersAllowed(true, {from: user}), 'UNAUTHORIZED'
+      dom.setTransfersAllowed(true, {from: user}), 'DOM token: no toggle privileges'
     );
   });
 
