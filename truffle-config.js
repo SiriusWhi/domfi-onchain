@@ -1,5 +1,4 @@
 const HDWalletProvider = require('@truffle/hdwallet-provider');
-const {toWei} = require('web3').utils;
 require('dotenv').config();
 
 module.exports = {
@@ -16,26 +15,35 @@ module.exports = {
       network_id: "5777",
     },
     kovan: {
-      provider: function() {
+      provider: function () {
         return new HDWalletProvider(
           [process.env.KOVAN_PRIVATE_KEY],
           process.env.KOVAN_INFURA_ENDPOINT
         );
       },
       gas: 5000000,
-      gasPrice: toWei("20", "gwei"),
+      gasPrice: 25000000000,
       network_id: 42
     },
-    rinkeby: {
-      provider: function() {
+    goerli: {
+      networkCheckTimeout: 100000,
+      provider: function () {
         return new HDWalletProvider(
-          [process.env.RINKEBY_PRIVATE_KEY],
-          process.env.RINKEBY_INFURA_ENDPOINT
+          [process.env.GOERLI_PRIVATE_KEY],
+          process.env.GOERLI_INFURA_ENDPOINT
         );
       },
-      gas: 5000000,
-      gasPrice: toWei("20", "gwei"),
-      network_id: 4
+      network_id: 5
+    },
+    mumbai: {
+      networkCheckTimeout: 100000,
+      provider: function () {
+        return new HDWalletProvider(
+          [process.env.MUMBAI_PRIVATE_KEY],
+          process.env.MUMBAI_ENDPOINT
+        );
+      },
+      network_id: 80001
     }
   },
 
@@ -47,13 +55,13 @@ module.exports = {
   // Configure your compilers
   compilers: {
     solc: {
-      version: "0.8.6",
-      optimizer: {
-        enabled: true,
-        runs: 25000,
-        details: {
-          yul: true
-        }
+      version: "0.8.5",    // Fetch exact version from solc-bin (default: truffle's version)
+      settings: {          // See the solidity docs for advice about optimization and evmVersion
+        optimizer: {
+          enabled: false,
+          runs: 200
+        },
+        evmVersion: "byzantium"
       }
     }
   },

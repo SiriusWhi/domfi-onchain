@@ -7,9 +7,7 @@
     "test": "truffle test",
     "hooks": "git config core.hooksPath .githooks",
     "ganache": "ganache-cli -p 7545 -i 5777",
-    "coverage": "truffle run coverage --network development",
-    "deploy-all": "truffle migrate --interactive",
-    "deploy-LSPs": "truffle migrate --reset -f 5 --to 7 --interactive"
+    "coverage": "truffle run coverage --network development"
   },
   "author": "",
   "license": "ISC",
@@ -17,7 +15,6 @@
     "@openzeppelin/contracts": "^4.1.0",
     "@openzeppelin/test-helpers": "^0.5.12",
     "@truffle/hdwallet-provider": "^1.4.1",
-    "@uma/core": "^2.7.0",
     "dotenv": "^10.0.0",
     "luxon": "^2.0.1",
     "truffle": "^5.3.8",

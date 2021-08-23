@@ -138,103 +138,22 @@ contract('Staking', (accounts) => {
 
     await time.advanceBlock();
     const now = await time.latest();
-    stakingStart = now.add(time.duration.hours(1));
-    lspExpiration = stakingStart.add(time.duration.days(200));
+    const target = now.add(2); // slop for slow tests; not too much
+    lspExpiration = target.add(time.duration.days(200));
 
     staking = new StakingClient(await Staking.new(
       LP.address,
       dom.address,
       deployer,
       stakingDOM.toWeb3(),
-      stakingStart.toString(),
       lspExpiration.toString(),
     ));
 
     await dom.grantRole("TRANSFER", staking.address);
     await dom.transfer(staking.address, stakingDOM);
 
-    await time.increaseTo(stakingStart);
-  });
-
-  it("should not allow creation with invalid parameters", async () => {
-    await time.advanceBlock();
-    const now = await time.latest();
-    stakingStart = now.add(time.duration.hours(1));
-    lspExpiration = stakingStart.add(time.duration.days(200));
-
-    await truffleAssert.reverts(
-      Staking.new(
-        LP.address,
-        dom.address,
-        deployer,
-        0,
-        stakingStart.toString(),
-        lspExpiration.toString(),
-      ),
-      'ZERO_AMOUNT'
-    );
-
-    stakingStart = now.sub(time.duration.hours(1));
-    lspExpiration = stakingStart.add(time.duration.days(200));
-    await truffleAssert.reverts(
-      Staking.new(
-        LP.address,
-        dom.address,
-        deployer,
-        stakingDOM.toWeb3(),
-        stakingStart.toString(),
-        lspExpiration.toString(),
-      ),
-      'PAST_TIMESTAMP'
-    );
-
-    stakingStart = now.add(time.duration.hours(1));
-    lspExpiration = stakingStart.add(time.duration.days(119));
-    await truffleAssert.reverts(
-      Staking.new(
-        LP.address,
-        dom.address,
-        deployer,
-        stakingDOM.toWeb3(),
-        stakingStart.toString(),
-        lspExpiration.toString(),
-      ),
-      'EXPIRES_TOO_SOON'
-    );
-  });
-
-  it("should not allow staking before contract is ready", async () => {
-    await time.advanceBlock();
-    const now = await time.latest();
-    stakingStart = now.add(time.duration.hours(1));
-    lspExpiration = stakingStart.add(time.duration.days(200));
-
-    const staking2 = new StakingClient(await Staking.new(
-      LP.address,
-      dom.address,
-      deployer,
-      stakingDOM.toWeb3(),
-      stakingStart.toString(),
-      lspExpiration.toString(),
-    ));
-    await dom.grantRole("TRANSFER", staking2.address);
-    await LP.approve(staking2.address, accountBalance);
-
-    // fail before stakingStart
-    await truffleAssert.reverts(
-      staking2.stake(accountBalance),
-      'STAKING_PROHIBITED'
-    );
-
-    // fail when contract not funded
-    await time.increaseTo(stakingStart);
-    await truffleAssert.reverts(
-      staking2.stake(accountBalance),
-      'STAKING_PROHIBITED'
-    );
-
-    await dom.transfer(staking2.address, stakingDOM);
-    await staking2.stake(accountBalance);
+    await staking.initialize();
+    stakingStart = await staking.STAKING_START_TIMESTAMP();
   });
 
   it("should allow users to stake during first 7 days", async () => {
@@ -255,7 +174,7 @@ contract('Staking', (accounts) => {
 
     await truffleAssert.reverts(
       staking.stake($DOM('100'), {from: accounts[3]}),
-      'STAKING_PROHIBITED');
+      'ERROR_STAKING_ENDED_OR_NOT_STARTED');
   });
 
   it("should allow users to withdraw at any time", async () => {
@@ -277,11 +196,6 @@ contract('Staking', (accounts) => {
 
   it("should allow a user to stake on behalf of another", async () => {
     await LP.approve(staking.address, accountBalance);
-
-    await truffleAssert.reverts(
-      staking.stakeFor("0x0000000000000000000000000000000000000000", accountBalance),
-      "ZERO_ADDRESS");
-
     await staking.stakeFor(user1, accountBalance);
 
     const initialDOM = await dom.balanceOf(user1);
@@ -332,14 +246,14 @@ contract('Staking', (accounts) => {
     const initialDOM = await dom.balanceOf(user1);
 
     const {0: rewardRatioAtTime, 1: penaltyRatioAtTime, 2: rewardsAtTime} = await staking.rewardsAt(halfway.toFixed(), user1);
-
     await time.increaseTo(halfway.toFixed());
-    const blockNumber = await time.latestBlock();
-    await staking.unstake(accountBalance, {from: user1});
-    const [ratios, account] = await Promise.all([
-      staking.ratios(blockNumber),
-      staking.account(user1, blockNumber)
+
+    // all three of these requests check block.timestamp, so we need to be fast to test equality
+    const [ratios, account ] = await Promise.all([
+      staking.ratios(),
+      staking.account(user1)
     ]);
+    await staking.unstake(accountBalance, {from: user1});
 
     const finalDOM = await dom.balanceOf(user1);
     const {0: overallRewardRatioAtTime, 1: overallPenaltyRatioAtTime} = ratios;
@@ -610,96 +524,6 @@ contract('Staking', (accounts) => {
 
     await time.increase(time.duration.days(7));
     await checkUnstake(user3, $DOM("100"));
-
-    await staking.withdrawLeftover();
-
-    assert((await LP.balanceOf(staking.address)).eq(0), "all LPs successfully exited");
-    assert((await dom.balanceOf(staking.address)).eq(0), "all DOM successfully withdrawn");
-  });
-
-
-  it("withdrawLeftover() should never change reward distribution", async () => {
-    const user1 = accounts[1];
-    await LP.approve(staking.address, accountBalance, {from: user1});
-    await staking.stake(accountBalance, {from: user1});
-
-    const totalStaked = accountBalance;
-    const model = helpers.rewardsModel(stakingStart, lspExpiration, stakingDOM, totalStaked);
-
-    const checkUnstake = async (user, amount) => {
-      const oldBal = await dom.balanceOf(user);
-
-      await staking.unstake(amount, {from: user});
-      const timestamp = await time.latest();
-
-      const newBal = await dom.balanceOf(user);
-      const expectedReward = model.totalReward(amount, timestamp);
-      await testTransfer({
-        staking,
-        model,
-        prevBalance: oldBal,
-        nextBalance: newBal,
-        expected: expectedReward,
-      });
-    };
-
-    const checkWithdrawLeftovers = async (unstakeAmount) => {
-      const timestamp = await time.latest();
-
-      const oldBal = await dom.balanceOf(deployer);
-      await staking.withdrawLeftover();
-      const newBal = await dom.balanceOf(deployer);
-      const actual = newBal.sub(oldBal);
-
-      const partialReward = model.totalReward(unstakeAmount, timestamp);
-      const maxReward = model.totalReward(unstakeAmount, lspExpiration);
-      const expected = maxReward.sub(partialReward);
-
-      const difference = actual.sub(expected);
-      try {
-        assert(difference.abs().lte(DomTokenAmount.fromWeb3(1)),
-          "Don't transfer more or less than expected");
-      }
-      catch (e) {
-        printTable([
-          { name: "Withdrawn Leftovers",
-            actual: actual.toFixed(18),
-            expected: expected.toFixed(18),
-            delta: `${sign(difference)}${difference.toFixed(18)}`
-          },
-        ]);
-        // throw e;
-      }
-    };
-
-    const unstakeAmount = accountBalance.div(4);
-    const stakingEnds = stakingStart.add(time.duration.days(7));
-    const penaltyEnds = stakingEnds.add(time.duration.days(120));
-
-    await dom.transfer(staking.address, $DOM(20), {from: deployer});
-    const initialBalance = await dom.balanceOf(deployer);
-    await staking.withdrawLeftover();
-    const newBalance = await dom.balanceOf(deployer);
-    assert.equal(newBalance.sub(initialBalance).toString(), $DOM(20).toString(),
-      "Staking should withdraw any balance > TOTAL_DOM");
-
-    await time.increaseTo(stakingEnds);
-    await checkUnstake(user1, unstakeAmount);
-    await checkWithdrawLeftovers(unstakeAmount);
-
-    const third = penaltyEnds.sub(stakingEnds).div(3);
-    await time.increaseTo(stakingEnds.add(third));
-    await checkUnstake(user1, unstakeAmount);
-    await checkWithdrawLeftovers(unstakeAmount);
-
-    const half = lspExpiration.sub(penaltyEnds).div(2);
-    await time.increaseTo(penaltyEnds.add(half));
-    await checkUnstake(user1, unstakeAmount);
-    await checkWithdrawLeftovers(unstakeAmount);
-
-    await time.increaseTo(lspExpiration.add(time.duration.days(2)));
-    await checkUnstake(user1, unstakeAmount);
-    await checkWithdrawLeftovers(unstakeAmount);
 
     await staking.withdrawLeftover();
 

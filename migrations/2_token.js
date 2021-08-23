@@ -2,9 +2,12 @@ require("dotenv").config();
 
 require('@openzeppelin/test-helpers/configure')({ provider: web3.currentProvider, environment: 'truffle' });
 const { singletons } = require('@openzeppelin/test-helpers');
-const { getDAO, storeFromNetwork } = require('./util');
+
 const DomToken = artifacts.require("DominationToken");
 
+function getDAO(network) {
+  return process.env[`${network.toUpperCase()}_DAO_ADDRESS`];
+}
 
 
 module.exports = async function (deployer, network, accounts) {
@@ -12,11 +15,5 @@ module.exports = async function (deployer, network, accounts) {
     // In a test environment an ERC777 token requires deploying an ERC1820 registry
     await singletons.ERC1820Registry(accounts[0]);
   }
-  const dom = await deployer.deploy(DomToken, [getDAO(network)]);
-  try {
-    storeFromNetwork("DOM_TOKEN", dom.address, network);
-  } catch (e) {
-    console.log(dom);
-    console.log(network);
-  }
+  await deployer.deploy(DomToken, [getDAO(network)]);
 };

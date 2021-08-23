@@ -134,11 +134,6 @@ function clamp(x, a, b) {
   }
   return x;
 }
-function scale(x, a, b) {
-  x = clamp(x, a, b);
-  return x.sub(a).div(
-    b.sub(a));
-}
 
 async function calculateUsageRewards(
   fromBlock,
@@ -341,7 +336,7 @@ async function _updatePayoutAtBlock(
   const symbol = (await longToken.symbol()).toLowerCase(); // e.g. 'btcdom'
   const dominance = await getDominance(symbol, timestamp);
 
-  const longVal = scale(dominance, lowerBound, upperBound);
+  const longVal = clamp(dominance, lowerBound, upperBound);
   const shortVal = (new Big(100)).sub(longVal);
   log.debug(`\nDominance: ${dominance} longVal: ${longVal} shortVal: ${shortVal} @${timestamp}`);
 

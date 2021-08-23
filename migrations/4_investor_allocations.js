@@ -1,6 +1,5 @@
 const BigNumber = require('bignumber.js');
 const luxon = require('luxon');
-const { storeFromNetwork } = require('./util');
 
 const DomToken = artifacts.require("DominationToken");
 const VesterFactory = artifacts.require("VesterFactory");
@@ -38,34 +37,29 @@ module.exports = async function (deployer, network) {
   const dom = await DomToken.deployed();
   const vFactory = await VesterFactory.deployed();
 
-  const vestingBeginDT = luxon.DateTime.now().plus({hours: 1});
-  const vestingBegin = vestingBeginDT.toSeconds().toFixed();
-  const vestingCliff = vestingBeginDT.plus({months: 6}).toSeconds().toFixed();
-  const vestingEnd = vestingBeginDT.plus({years: 3}).toSeconds().toFixed();
-  const timeout = luxon.Duration.fromObject({ months: 1 }).as('seconds');
+  const vestingBegin = luxon.DateTime.now().plus({hours: 1});
+  const vestingCliff = vestingBegin.plus({months: 6});
+  const vestingEnd = vestingBegin.plus({years: 3});
+  const timeout = luxon.Duration.fromObject({ months: 1 });
 
-  console.log(`Deploying with
-    vestingBegin: ${vestingBegin}
-    vestingCliff: ${vestingCliff}
-    vestingEnd: ${vestingEnd}
-    timeout: ${timeout}`);
+  console.log(`Deployed with
+    vestingBegin: ${vestingBegin.toSeconds()}
+    vestingCliff: ${vestingCliff.toSeconds()}
+    vestingEnd: ${vestingEnd.toSeconds()}
+    timeout: ${timeout.as('seconds')}`);
 
-  const deploy = async(allocation) => {
+  for (const allocation of allocations) {
+    const start = await web3.eth.getBlockNumber();
     const data = web3.eth.abi.encodeParameters(['address','uint','uint','uint','uint'], [
       allocation.address,
-      vestingBegin,
-      vestingCliff,
-      vestingEnd,
-      timeout
+      Math.floor(vestingBegin.toSeconds()),
+      Math.floor(vestingCliff.toSeconds()),
+      Math.floor(vestingEnd.toSeconds()),
+      timeout.as('seconds')
     ]);
     
     await dom.send(vFactory.address, allocation.amount, data);
-  };
-
-  const startBlock = await web3.eth.getBlockNumber();
-  await Promise.all(allocations.map(deploy));
-
-  const eventList = await vFactory.getPastEvents('VesterCreated', { fromBlock: startBlock });
-  const addresses = eventList.slice(0, allocations.length).map((e) => e.args.childAddress);
-  storeFromNetwork('VESTERS', addresses, network);
+    const eventList = await vFactory.getPastEvents({ fromBlock: start}, 'VesterCreated');
+    console.log(`${eventList[0].args.childAddress} ${allocation.amount}`);
+  }
 };
